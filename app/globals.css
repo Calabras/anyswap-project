@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* DeFi Dark Theme - Main Colors */
+    --background: 220 25% 8%;
+    --foreground: 45 20% 96%;
+
+    --card: 220 20% 11%;
+    --card-foreground: 45 20% 96%;
+
+    --popover: 220 20% 11%;
+    --popover-foreground: 45 20% 96%;
+
+    /* Warm Yellow/Gold Accent */
+    --primary: 45 95% 58%;
+    --primary-foreground: 220 25% 8%;
+
+    --secondary: 220 18% 15%;
+    --secondary-foreground: 45 20% 96%;
+
+    --muted: 220 15% 18%;
+    --muted-foreground: 45 10% 65%;
+
+    --accent: 45 95% 58%;
+    --accent-foreground: 220 25% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 45 20% 96%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 45 95% 58%;
+
+    --radius: 0.5rem;
+
+    /* Table & Data Display */
+    --table-header: 220 20% 12%;
+    --table-row: 220 18% 13%;
+    --table-row-hover: 220 18% 16%;
+
+    /* Glow Effects */
+    --glow-primary: 45 95% 58%;
+    --glow-secondary: 45 85% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', 'Gilroy', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    font-optical-sizing: auto;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 20px hsl(var(--glow-primary) / 0.5);
+  }
+
+  .glow-border {
+    box-shadow: 0 0 20px hsl(var(--glow-primary) / 0.3);
+  }
+
+  .table-row-hover {
+    @apply transition-all duration-200 hover:bg-[hsl(var(--table-row-hover))];
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
+

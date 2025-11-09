@@ -1,0 +1,188 @@
+{
+  "nav": {
+    "discover": "发现",
+    "positions": "我的仓位",
+    "analytics": "分析",
+    "docs": "文档"
+  },
+  "header": {
+    "joinNow": "立即加入",
+    "connectWallet": "连接钱包"
+  },
+  "auth": {
+    "joinAnySwap": "加入 AnySwap",
+    "enterEmail": "输入您的电子邮件地址",
+    "registerWithEmail": "通过电子邮件注册",
+    "registerLoginWithEmail": "使用邮箱注册/登录",
+    "or": "或",
+    "connectWallet": "连接钱包",
+    "walletSecurityNote": "您的资金保留在您的钱包中。我们永远无法访问您的私钥。",
+    "back": "返回",
+    "enterYourEmail": "输入您的电子邮件",
+    "emailPlaceholder": "you@example.com",
+    "sending": "发送中...",
+    "sendCode": "发送验证码",
+    "verifyEmail": "验证您的电子邮件",
+    "verificationCodeSent": "我们已向 {{email}} 发送了 6 位验证码",
+    "verifying": "验证中...",
+    "continue": "继续",
+    "createPassword": "创建密码",
+    "passwordPlaceholder": "输入密码（至少 8 个字符）",
+    "confirmPasswordPlaceholder": "确认密码",
+    "passwordMinLength": "至少 8 个字符",
+    "passwordsMatch": "密码匹配",
+    "completing": "完成中...",
+    "completeRegistration": "完成注册",
+    "registrationComplete": "注册完成！",
+    "redirecting": "正在重定向到您的仪表板..."
+  },
+  "home": {
+    "title": "高级流动性管理",
+    "subtitle": "使用高级分析和一键优化管理您的 Uniswap V3 仓位"
+  },
+  "filters": {
+    "title": "筛选",
+    "allPools": "所有池",
+    "stablePairs": "稳定对",
+    "volatilePairs": "波动对",
+    "concentrated": "集中",
+    "network": "网络",
+    "allNetworks": "所有网络",
+    "tvl": "TVL 量 ($)",
+    "fee": "费用 ($)",
+    "apr": "APR (%)",
+    "from": "从",
+    "to": "到",
+    "reset": "重置",
+    "active": "活跃"
+  },
+  "sort": {
+    "byTVL": "按 TVL 排序",
+    "byVolume": "按交易量排序",
+    "byAPR": "按 APR 排序",
+    "ascending": "升序",
+    "descending": "降序"
+  },
+  "actions": {
+    "createPosition": "创建仓位"
+  },
+  "pool": {
+    "price": "价格",
+    "tvl": "TVL",
+    "volume24h": "24小时交易量",
+    "apr": "APR",
+    "addLiquidity": "添加流动性",
+    "noPoolsFound": "未找到匹配筛选条件的池"
+  },
+  "stats": {
+    "totalTVL": "总 TVL",
+    "totalVolume": "24小时交易量",
+    "avgAPR": "平均 APR",
+    "activePositions": "活跃仓位"
+  },
+  "position": {
+    "createNew": "创建新仓位",
+    "selectTokens": "选择代币对",
+    "setPriceRange": "设置价格范围",
+    "enterAmount": "输入金额",
+    "depositAmount": "存款金额 (USD)",
+    "minPrice": "最低价格",
+    "maxPrice": "最高价格",
+    "currentPrice": "当前价格",
+    "inRange": "在范围内",
+    "outOfRange": "超出范围",
+    "estimatedAPR": "预计 APR",
+    "create": "创建仓位",
+    "cancel": "取消",
+    "created": "仓位创建成功",
+    "createError": "创建仓位失败",
+    "pleaseLogin": "请先登录",
+    "fullRange": "全范围",
+    "fullRangeDescription": "您的仓位将在整个价格范围内保持活跃。费用持续赚取。",
+    "estimatedReturns": "预计收益",
+    "dailyIncome": "每日收入",
+    "creating": "创建中...",
+    "howItWorks": "集中流动性如何工作",
+    "howItWorks1": "较窄的价格范围赚取更高的费用，但需要更积极的管理",
+    "howItWorks2": "您的仓位仅在价格在您选择的范围内时赚取费用",
+    "howItWorks3": "您可以随时调整或关闭仓位",
+    "myPositions": "我的仓位",
+    "managePositions": "管理您的流动性仓位",
+    "backToHome": "返回首页",
+    "noPositions": "没有活跃仓位",
+    "noPositionsDescription": "您还没有任何活跃仓位。创建您的第一个仓位以开始赚取费用。",
+    "browsePools": "浏览池",
+    "amount": "金额",
+    "collectedFees": "已收集费用",
+    "collectFees": "收集费用",
+    "collecting": "收集中...",
+    "feesCollected": "费用已收集: {{amount}}$",
+    "collectFeesError": "收集费用失败",
+    "close": "关闭",
+    "closing": "关闭中...",
+    "closeConfirm": "您确定要关闭此仓位吗？",
+    "closed": "仓位已关闭。已返还: {{amount}}$",
+    "closeError": "关闭仓位失败"
+  },
+  "pool": {
+    "backToPools": "返回池",
+    "notFound": "未找到池",
+    "info": "池信息",
+    "currentPrice": "当前价格"
+  },
+  "auth": {
+    "pleaseLogin": "请先登录"
+  },
+  "deposit": {
+    "title": "充值余额",
+    "subtitle": "选择支付方式并输入充值金额",
+    "back": "返回",
+    "paymentMethod": "支付方式",
+    "cryptocurrencies": "加密货币",
+    "bankCards": "银行卡",
+    "russia": "俄罗斯",
+    "wallet": "钱包",
+    "connected": "已连接",
+    "test": "测试",
+    "free": "免费",
+    "amount": "充值金额",
+    "amountLabel": "金额 (USD)",
+    "commission": "佣金:",
+    "totalToPay": "应付总额:",
+    "processing": "处理中...",
+    "pay": "支付",
+    "success": "成功充值 {{amount}}$",
+    "error": "请输入有效金额",
+    "depositError": "充值余额时出错"
+  },
+  "withdraw": {
+    "title": "提取资金",
+    "currency": "提取货币",
+    "walletAddress": "钱包地址",
+    "walletAddressPlaceholder": "输入 {{network}} 钱包地址",
+    "amount": "提取金额 (USD)",
+    "commission": "佣金:",
+    "totalToWithdraw": "提取总额:",
+    "processing": "处理中...",
+    "button": "提取",
+    "error": "请输入钱包地址",
+    "amountError": "请输入有效金额",
+    "success": "提取请求已创建",
+    "withdrawError": "创建提取请求时出错"
+  },
+  "menu": {
+    "profile": "个人资料",
+    "settings": "设置",
+    "logout": "登出"
+  },
+  "header": {
+    "deposit": "充值",
+    "withdraw": "提取"
+  },
+  "auth": {
+    "nickname": "选择您的昵称",
+    "nicknameDescription": "您的昵称将用于识别您。以后无法更改。",
+    "nicknamePlaceholder": "输入您的昵称（至少 3 个字符）"
+  }
+}
+

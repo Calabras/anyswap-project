@@ -1,0 +1,187 @@
+{
+  "nav": {
+    "discover": "Обзор",
+    "positions": "Мои позиции",
+    "analytics": "Аналитика",
+    "docs": "Документация"
+  },
+  "header": {
+    "joinNow": "Присоединиться",
+    "connectWallet": "Подключить кошелек"
+  },
+  "auth": {
+    "joinAnySwap": "Присоединиться к AnySwap",
+    "enterEmail": "Введите ваш email адрес",
+    "registerWithEmail": "Регистрация через Email",
+    "registerLoginWithEmail": "Регистрация/Вход по Email",
+    "or": "ИЛИ",
+    "connectWallet": "Подключить кошелек",
+    "walletSecurityNote": "Ваши средства остаются в вашем кошельке. Мы никогда не имеем доступа к вашим приватным ключам.",
+    "back": "Назад",
+    "enterYourEmail": "Введите ваш Email",
+    "emailPlaceholder": "you@example.com",
+    "sending": "Отправка...",
+    "sendCode": "Отправить код подтверждения",
+    "verifyEmail": "Подтвердите Email",
+    "verificationCodeSent": "Мы отправили 6-значный код на {{email}}",
+    "verifying": "Проверка...",
+    "continue": "Продолжить",
+    "createPassword": "Создайте пароль",
+    "passwordPlaceholder": "Введите пароль (мин. 8 символов)",
+    "confirmPasswordPlaceholder": "Подтвердите пароль",
+    "passwordMinLength": "Минимум 8 символов",
+    "passwordsMatch": "Пароли совпадают",
+    "completing": "Завершение...",
+    "completeRegistration": "Завершить регистрацию",
+    "registrationComplete": "Регистрация завершена!",
+    "redirecting": "Перенаправление в личный кабинет..."
+  },
+  "home": {
+    "title": "Продвинутое управление ликвидностью",
+    "subtitle": "Управляйте позициями Uniswap V3 с расширенной аналитикой и оптимизацией в один клик"
+  },
+  "filters": {
+    "title": "Фильтры",
+    "allPools": "Все пулы",
+    "stablePairs": "Стабильные пары",
+    "volatilePairs": "Волатильные пары",
+    "concentrated": "Концентрированные",
+    "network": "Сеть",
+    "allNetworks": "Все сети",
+    "tvl": "Объем TVL ($)",
+    "fee": "Комиссии ($)",
+    "apr": "APR (%)",
+    "from": "От",
+    "to": "До",
+    "reset": "Сбросить",
+    "active": "Активно"
+  },
+  "sort": {
+    "byTVL": "По TVL",
+    "byVolume": "По объему",
+    "byAPR": "По APR",
+    "ascending": "По возрастанию",
+    "descending": "По убыванию"
+  },
+  "actions": {
+    "createPosition": "Создать позицию"
+  },
+  "pool": {
+    "price": "Цена",
+    "tvl": "TVL",
+    "volume24h": "Объем за 24ч",
+    "apr": "APR",
+    "addLiquidity": "Добавить ликвидность",
+    "noPoolsFound": "Пулы не найдены по заданным фильтрам"
+  },
+  "stats": {
+    "totalTVL": "Общий TVL",
+    "totalVolume": "Объем за 24ч",
+    "avgAPR": "Средний APR",
+    "activePositions": "Активные позиции"
+  },
+  "position": {
+    "createNew": "Создать новую позицию",
+    "selectTokens": "Выберите пару токенов",
+    "setPriceRange": "Установите ценовой диапазон",
+    "enterAmount": "Введите сумму",
+    "depositAmount": "Сумма депозита (USD)",
+    "minPrice": "Мин. цена",
+    "maxPrice": "Макс. цена",
+    "currentPrice": "Текущая цена",
+    "inRange": "В диапазоне",
+    "outOfRange": "Вне диапазона",
+    "estimatedAPR": "Ожидаемый APR",
+    "create": "Создать позицию",
+    "cancel": "Отмена",
+    "created": "Позиция успешно создана",
+    "createError": "Ошибка при создании позиции",
+    "pleaseLogin": "Пожалуйста, войдите в систему",
+    "fullRange": "Полный диапазон",
+    "fullRangeDescription": "Ваша позиция будет активна во всем ценовом диапазоне. Комиссии начисляются постоянно.",
+    "estimatedReturns": "Ожидаемая доходность",
+    "dailyIncome": "Дневной доход",
+    "creating": "Создание...",
+    "howItWorks": "Как работает концентрированная ликвидность",
+    "howItWorks1": "Узкие ценовые диапазоны приносят больше комиссий, но требуют активного управления",
+    "howItWorks2": "Ваша позиция зарабатывает комиссии только когда цена находится в выбранном диапазоне",
+    "howItWorks3": "Вы можете изменить или закрыть позицию в любое время",
+    "myPositions": "Мои позиции",
+    "managePositions": "Управляйте своими позициями ликвидности",
+    "backToHome": "Назад на главную",
+    "noPositions": "Нет активных позиций",
+    "noPositionsDescription": "У вас пока нет активных позиций. Создайте первую позицию, чтобы начать зарабатывать комиссии.",
+    "browsePools": "Обзор пулов",
+    "amount": "Сумма",
+    "collectedFees": "Собранные комиссии",
+    "collectFees": "Собрать комиссии",
+    "collecting": "Сбор...",
+    "feesCollected": "Комиссии собраны: {{amount}}$",
+    "collectFeesError": "Ошибка при сборе комиссий",
+    "close": "Закрыть",
+    "closing": "Закрытие...",
+    "closeConfirm": "Вы уверены, что хотите закрыть эту позицию?",
+    "closed": "Позиция закрыта. Возвращено: {{amount}}$",
+    "closeError": "Ошибка при закрытии позиции"
+  },
+  "pool": {
+    "backToPools": "Назад к пулам",
+    "notFound": "Пул не найден",
+    "info": "Информация о пуле",
+    "currentPrice": "Текущая цена"
+  },
+  "auth": {
+    "pleaseLogin": "Пожалуйста, войдите в систему"
+  },
+  "deposit": {
+    "title": "Пополнение баланса",
+    "subtitle": "Выберите способ оплаты и введите сумму пополнения",
+    "back": "Назад",
+    "paymentMethod": "Способ оплаты",
+    "cryptocurrencies": "Криптовалюты",
+    "bankCards": "Банковские карты",
+    "russia": "РФ",
+    "wallet": "Кошелек",
+    "connected": "Подключенный",
+    "test": "Тестовый",
+    "free": "Бесплатно",
+    "amount": "Сумма пополнения",
+    "amountLabel": "Сумма (USD)",
+    "commission": "Комиссия:",
+    "totalToPay": "Итоговая сумма к оплате:",
+    "processing": "Обработка...",
+    "pay": "Оплатить",
+    "success": "Пополнение на сумму {{amount}}$ успешно",
+    "error": "Введите корректную сумму",
+    "depositError": "Ошибка при пополнении баланса"
+  },
+  "withdraw": {
+    "title": "Вывод средств",
+    "currency": "Валюта для вывода",
+    "walletAddress": "Адрес кошелька",
+    "walletAddressPlaceholder": "Введите адрес {{network}} кошелька",
+    "amount": "Сумма вывода (USD)",
+    "commission": "Комиссия:",
+    "totalToWithdraw": "Итоговая сумма к выводу:",
+    "processing": "Обработка...",
+    "button": "Вывести",
+    "error": "Введите адрес кошелька",
+    "amountError": "Введите корректную сумму",
+    "success": "Заявка на вывод средств создана",
+    "withdrawError": "Ошибка при создании заявки на вывод"
+  },
+  "menu": {
+    "profile": "Профиль",
+    "settings": "Настройки",
+    "logout": "Выйти"
+  },
+  "header": {
+    "deposit": "Пополнить",
+    "withdraw": "Вывести"
+  },
+  "auth": {
+    "nickname": "Выберите никнейм",
+    "nicknameDescription": "Ваш никнейм будет использоваться для идентификации. Его нельзя будет изменить позже.",
+    "nicknamePlaceholder": "Введите ваш никнейм (мин. 3 символа)"
+  }
+}
