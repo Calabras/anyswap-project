@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Users, CreditCard, Layers, Settings } from 'lucide-react'
 import UserManagement from '@/components/admin/UserManagement'
 import PaymentSystemManagement from '@/components/admin/PaymentSystemManagement'
-import LiquidityPoolManagement from '@/components/admin/LiquidityPoolManagement'
+import PoolManagement from '@/components/admin/PoolManagement'
 import SiteSettings from '@/components/admin/SiteSettings'
 
 export default function AdminPage() {
@@ -115,7 +115,7 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="pools">
-            <LiquidityPoolManagement />
+            <PoolManagement />
           </TabsContent>
 
           <TabsContent value="settings">

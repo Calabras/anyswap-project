@@ -288,7 +288,7 @@ export default function PoolManagement() {
                 <div className="flex space-x-3">
                   <input
                     type="text"
-                    placeholder="0x... (адрес пула)"
+                    placeholder="0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36 (pool address)"
                     value={poolAddress}
                     onChange={(e) => setPoolAddress(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
