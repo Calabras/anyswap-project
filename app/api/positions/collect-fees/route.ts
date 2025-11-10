@@ -1,6 +1,6 @@
 // app/api/positions/collect-fees/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { collectFeesData } from '@/lib/uniswap/positions'
 import { fetchCryptoPrice } from '@/lib/binance/api'

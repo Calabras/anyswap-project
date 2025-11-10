@@ -2,7 +2,7 @@
 // Check if user exists and is verified (for unified auth flow)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { isValidEmail, validateBodySize } from '@/lib/security/validation'
 import { sanitizeError } from '@/lib/security/errors'
 
@@ -32,27 +32,32 @@ export async function POST(req: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim()
 
     // Check if user exists
-    const result = await query(
-      'SELECT id, email, email_verified FROM users WHERE email = $1',
-      [normalizedEmail]
-    )
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        email: true,
+        emailVerified: true,
+        password: true
+      }
+    })
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { 
           exists: false,
           emailVerified: false,
+          hasPassword: false
         },
         { status: 200 }
       )
     }
 
-    const user = result.rows[0]
-
     return NextResponse.json(
       { 
         exists: true,
-        emailVerified: user.email_verified || false,
+        emailVerified: user.emailVerified || false,
+        hasPassword: !!user.password,
         userId: user.id,
       },
       { status: 200 }

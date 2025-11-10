@@ -1,6 +1,6 @@
 // app/api/admin/payment-systems/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { sanitizeError } from '@/lib/security/errors'
 
 async function verifyAdmin(req: NextRequest) {
@@ -19,12 +19,12 @@ async function verifyAdmin(req: NextRequest) {
   try {
     const jwt = require('jsonwebtoken')
     const decoded = jwt.verify(token, jwtSecret) as { userId: string }
-    const result = await query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [decoded.userId]
-    )
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { isAdmin: true }
+    })
 
-    if (result.rows.length === 0 || !result.rows[0].is_admin) {
+    if (!user || !user.isAdmin) {
       return null
     }
 

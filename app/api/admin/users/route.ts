@@ -1,6 +1,6 @@
 // app/api/admin/users/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { sanitizeError } from '@/lib/security/errors'
 
@@ -19,12 +19,12 @@ async function verifyAdmin(req: NextRequest) {
 
   try {
     const decoded = jwt.verify(token, jwtSecret) as { userId: string }
-    const result = await query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [decoded.userId]
-    )
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { isAdmin: true }
+    })
 
-    if (result.rows.length === 0 || !result.rows[0].is_admin) {
+    if (!user || !user.isAdmin) {
       return null
     }
 
@@ -44,25 +44,42 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const result = await query(
-      `SELECT 
-        id, 
-        email, 
-        wallet_address, 
-        nickname, 
-        balance_usd, 
-        email_verified, 
-        created_at, 
-        last_login_at, 
-        ip_address, 
-        is_banned, 
-        auth_type
-       FROM users 
-       ORDER BY created_at DESC`
-    )
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        walletAddress: true,
+        nickname: true,
+        balanceUsd: true,
+        emailVerified: true,
+        createdAt: true,
+        lastLoginAt: true,
+        ipAddress: true,
+        isBanned: true,
+        authType: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    // Convert to snake_case for backward compatibility with frontend
+    const formattedUsers = users.map(user => ({
+      id: user.id,
+      email: user.email,
+      wallet_address: user.walletAddress,
+      nickname: user.nickname,
+      balance_usd: user.balanceUsd.toString(),
+      email_verified: user.emailVerified,
+      created_at: user.createdAt,
+      last_login_at: user.lastLoginAt,
+      ip_address: user.ipAddress,
+      is_banned: user.isBanned,
+      auth_type: user.authType
+    }))
 
     return NextResponse.json(
-      { users: result.rows },
+      { users: formattedUsers },
       { status: 200 }
     )
   } catch (error: unknown) {

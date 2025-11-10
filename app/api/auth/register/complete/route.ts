@@ -1,6 +1,6 @@
 // app/api/auth/register/complete/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { isValidEmail, getClientIP, validateBodySize } from '@/lib/security/validation'
 import { sanitizeError } from '@/lib/security/errors'
@@ -45,23 +45,25 @@ export async function POST(req: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim()
 
     // Check if user exists and is verified
-    const userResult = await query(
-      `SELECT id, email, email_verified, nickname
-       FROM users 
-       WHERE email = $1`,
-      [normalizedEmail]
-    )
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        email: true,
+        emailVerified: true,
+        nickname: true,
+        isAdmin: true
+      }
+    })
 
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
         { status: 404 }
       )
     }
 
-    const user = userResult.rows[0]
-
-    if (!user.email_verified) {
+    if (!user.emailVerified) {
       return NextResponse.json(
         { message: 'Email not verified' },
         { status: 400 }
@@ -69,12 +71,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if nickname is already taken
-    const nicknameCheck = await query(
-      'SELECT id FROM users WHERE nickname = $1 AND id != $2',
-      [nickname, user.id]
-    )
+    const nicknameCheck = await prisma.user.findFirst({
+      where: {
+        nickname: nickname,
+        NOT: { id: user.id }
+      },
+      select: { id: true }
+    })
 
-    if (nicknameCheck.rows.length > 0) {
+    if (nicknameCheck) {
       return NextResponse.json(
         { message: 'Nickname already taken' },
         { status: 409 }
@@ -82,12 +87,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Update user with nickname
-    await query(
-      `UPDATE users 
-       SET nickname = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [nickname, user.id]
-    )
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        nickname: nickname,
+        updatedAt: new Date()
+      }
+    })
 
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET
@@ -106,12 +112,6 @@ export async function POST(req: NextRequest) {
       { expiresIn: '7d' }
     )
 
-    // Get user with admin status
-    const userResult = await query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [user.id]
-    )
-
     return NextResponse.json(
       { 
         message: 'Registration completed successfully',
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
           email: user.email,
           nickname,
           emailVerified: true,
-          isAdmin: userResult.rows[0]?.is_admin || false,
+          isAdmin: user.isAdmin || false,
         },
       },
       { status: 200 }

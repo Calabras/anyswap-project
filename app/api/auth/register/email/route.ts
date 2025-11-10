@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { randomInt } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { isValidEmail, isValidPassword, sanitizeString, getClientIP, validateBodySize } from '@/lib/security/validation'
 import { checkEmailRegistrationLimit } from '@/lib/security/rateLimit'
 import { sanitizeError } from '@/lib/security/errors'
@@ -81,14 +81,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user already exists FIRST (before rate limiting)
-    const existingUser = await query(
-      'SELECT id, email_verified, created_at, email_verification_expires FROM users WHERE email = $1',
-      [normalizedEmail]
-    )
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        emailVerified: true,
+        createdAt: true,
+        emailVerificationExpires: true
+      }
+    })
 
     // Rate limiting - but skip for existing users who just need a new code
     const clientIP = getClientIP(req)
-    const isExistingUser = existingUser.rows.length > 0
+    const isExistingUser = !!existingUser
     
     // Only apply rate limiting for new registrations, not for resending codes to existing users
     if (!isExistingUser) {
@@ -109,12 +114,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (existingUser.rows.length > 0) {
-      const user = existingUser.rows[0]
-      
+    if (existingUser) {
       // If user is already verified, they should use login endpoint, but we'll still send code for unified flow
       // This allows the unified form to work seamlessly
-      if (user.email_verified) {
+      if (existingUser.emailVerified) {
         // User is verified - they should login, but we'll send code anyway for unified experience
         // The frontend will handle this as login flow
       }
@@ -123,12 +126,13 @@ export async function POST(req: NextRequest) {
       if (password) {
         // Hash password and update user
         const passwordHash = await bcrypt.hash(password, 12) // Increased salt rounds for better security
-        await query(
-          `UPDATE users 
-           SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
-           WHERE email = $2`,
-          [passwordHash, normalizedEmail]
-        )
+        await prisma.user.update({
+          where: { email: normalizedEmail },
+          data: { 
+            password: passwordHash,
+            updatedAt: new Date()
+          }
+        })
         
         return NextResponse.json(
           { message: 'Password set successfully' },
@@ -145,48 +149,62 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
     // Create or update user in database
-    let result
-    if (existingUser.rows.length > 0) {
+    let user
+    if (existingUser) {
       // Update existing user with new verification code
-      result = await query(
-        `UPDATE users 
-         SET email_verification_code = $1, 
-             email_verification_expires = $2,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE email = $3
-         RETURNING id, email, created_at`,
-        [code, expiresAt, normalizedEmail]
-      )
+      user = await prisma.user.update({
+        where: { email: normalizedEmail },
+        data: {
+          emailVerificationCode: code,
+          emailVerificationExpires: expiresAt,
+          updatedAt: new Date()
+        },
+        select: {
+          id: true,
+          email: true,
+          createdAt: true
+        }
+      })
     } else {
       // Create new user
       const clientIP = getClientIP(req)
       try {
-        result = await query(
-          `INSERT INTO users (email, email_verification_code, email_verification_expires, auth_type, ip_address)
-           VALUES ($1, $2, $3, 'email', $4)
-           RETURNING id, email, created_at`,
-          [normalizedEmail, code, expiresAt, clientIP]
-        )
+        user = await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            emailVerificationCode: code,
+            emailVerificationExpires: expiresAt,
+            authType: 'email',
+            ipAddress: clientIP
+          },
+          select: {
+            id: true,
+            email: true,
+            createdAt: true
+          }
+        })
       } catch (error: any) {
         // Handle race condition - if user was created between check and insert
-        if (error.message && error.message.includes('duplicate key')) {
+        if (error.code === 'P2002') { // Prisma unique constraint violation
           // User was created by another request, update instead
-          result = await query(
-            `UPDATE users 
-             SET email_verification_code = $1, 
-                 email_verification_expires = $2,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE email = $3
-             RETURNING id, email, created_at`,
-            [code, expiresAt, normalizedEmail]
-          )
+          user = await prisma.user.update({
+            where: { email: normalizedEmail },
+            data: {
+              emailVerificationCode: code,
+              emailVerificationExpires: expiresAt,
+              updatedAt: new Date()
+            },
+            select: {
+              id: true,
+              email: true,
+              createdAt: true
+            }
+          })
         } else {
           throw error
         }
       }
     }
-
-    const user = result.rows[0]
 
     // Send verification email (sanitize code to prevent XSS)
     const sanitizedCode = sanitizeString(code)

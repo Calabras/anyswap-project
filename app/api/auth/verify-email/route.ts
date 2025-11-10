@@ -1,6 +1,6 @@
 // app/api/auth/verify-email/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { isValidEmail, isValidVerificationCode, getClientIP, validateBodySize } from '@/lib/security/validation'
 import { checkVerificationLimit } from '@/lib/security/rateLimit'
@@ -65,23 +65,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Check user and verification code
-    const result = await query(
-      `SELECT id, email, email_verification_code, email_verification_expires, email_verified
-       FROM users 
-       WHERE email = $1`,
-      [normalizedEmail]
-    )
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        email: true,
+        emailVerificationCode: true,
+        emailVerificationExpires: true,
+        emailVerified: true
+      }
+    })
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
         { status: 404 }
       )
     }
 
-    const user = result.rows[0]
-
-    if (user.email_verified) {
+    if (user.emailVerified) {
       return NextResponse.json(
         { message: 'Email already verified' },
         { status: 400 }
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if code is expired
-    if (new Date(user.email_verification_expires) < new Date()) {
+    if (!user.emailVerificationExpires || new Date(user.emailVerificationExpires) < new Date()) {
       return NextResponse.json(
         { message: 'Verification code has expired' },
         { status: 400 }
@@ -98,11 +100,11 @@ export async function POST(req: NextRequest) {
 
     // Normalize code (trim whitespace, remove any non-digit characters)
     const normalizedCode = code.trim().replace(/\D/g, '')
-    const normalizedStoredCode = user.email_verification_code?.trim() || ''
+    const normalizedStoredCode = user.emailVerificationCode?.trim() || ''
     
     // Verify code using constant-time comparison (prevent timing attacks)
     if (!normalizedStoredCode || !secureCompare(normalizedStoredCode, normalizedCode)) {
-      console.warn(`Email verification failed: Invalid code for user ${user.id}. Provided: "${code}" (normalized: "${normalizedCode}"), Expected: "${user.email_verification_code}" (normalized: "${normalizedStoredCode}")`)
+      console.warn(`Email verification failed: Invalid code for user ${user.id}. Provided: "${code}" (normalized: "${normalizedCode}"), Expected: "${user.emailVerificationCode}" (normalized: "${normalizedStoredCode}")`)
       return NextResponse.json(
         { message: 'Invalid verification code' },
         { status: 400 }
@@ -110,15 +112,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Update user as verified
-    await query(
-      `UPDATE users 
-       SET email_verified = TRUE, 
-           email_verification_code = NULL,
-           email_verification_expires = NULL,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1`,
-      [user.id]
-    )
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpires: null,
+        updatedAt: new Date()
+      }
+    })
 
     // Generate JWT token (require JWT_SECRET to be set)
     const jwtSecret = process.env.JWT_SECRET

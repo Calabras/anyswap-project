@@ -1,6 +1,6 @@
 // app/api/deposit/test/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { sanitizeError } from '@/lib/security/errors'
 

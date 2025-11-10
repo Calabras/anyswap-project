@@ -1,6 +1,6 @@
 // app/api/auth/wallet/complete/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { validateBodySize } from '@/lib/security/validation'
 import { sanitizeError } from '@/lib/security/errors'
@@ -38,29 +38,33 @@ export async function POST(req: NextRequest) {
     const normalizedAddress = walletAddress.toLowerCase().trim()
 
     // Check if user exists
-    const userResult = await query(
-      `SELECT id, email, wallet_address, nickname
-       FROM users 
-       WHERE wallet_address = $1`,
-      [normalizedAddress]
-    )
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: normalizedAddress },
+      select: {
+        id: true,
+        email: true,
+        walletAddress: true,
+        nickname: true
+      }
+    })
 
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
         { status: 404 }
       )
     }
 
-    const user = userResult.rows[0]
-
     // Check if nickname is already taken
-    const nicknameCheck = await query(
-      'SELECT id FROM users WHERE nickname = $1 AND id != $2',
-      [nickname, user.id]
-    )
+    const nicknameCheck = await prisma.user.findFirst({
+      where: {
+        nickname: nickname,
+        NOT: { id: user.id }
+      },
+      select: { id: true }
+    })
 
-    if (nicknameCheck.rows.length > 0) {
+    if (nicknameCheck) {
       return NextResponse.json(
         { message: 'Nickname already taken' },
         { status: 409 }
@@ -68,12 +72,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Update user with nickname
-    await query(
-      `UPDATE users 
-       SET nickname = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [nickname, user.id]
-    )
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        nickname: nickname,
+        updatedAt: new Date()
+      }
+    })
 
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET
@@ -87,7 +92,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = jwt.sign(
-      { userId: user.id, walletAddress: user.wallet_address },
+      { userId: user.id, walletAddress: user.walletAddress },
       jwtSecret,
       { expiresIn: '7d' }
     )
@@ -99,7 +104,7 @@ export async function POST(req: NextRequest) {
         user: {
           id: user.id,
           email: user.email,
-          walletAddress: user.wallet_address,
+          walletAddress: user.walletAddress,
           nickname,
           authType: 'wallet',
         },

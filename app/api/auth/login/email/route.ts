@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { randomInt } from 'crypto'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { isValidEmail, sanitizeString, getClientIP, validateBodySize } from '@/lib/security/validation'
 import { checkEmailRegistrationLimit } from '@/lib/security/rateLimit'
 import { sanitizeError } from '@/lib/security/errors'
@@ -87,21 +87,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user exists and is verified
-    const existingUser = await query(
-      'SELECT id, email_verified FROM users WHERE email = $1',
-      [normalizedEmail]
-    )
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        emailVerified: true
+      }
+    })
 
-    if (existingUser.rows.length === 0) {
+    if (!existingUser) {
       return NextResponse.json(
         { message: 'User not found. Please register first.' },
         { status: 404 }
       )
     }
 
-    const user = existingUser.rows[0]
-
-    if (!user.email_verified) {
+    if (!existingUser.emailVerified) {
       return NextResponse.json(
         { message: 'Email not verified. Please complete registration first.' },
         { status: 400 }
@@ -113,14 +114,14 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
     // Store login code (we'll use email_verification_code field for login codes too)
-    await query(
-      `UPDATE users 
-       SET email_verification_code = $1, 
-           email_verification_expires = $2,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE email = $3`,
-      [code, expiresAt, normalizedEmail]
-    )
+    await prisma.user.update({
+      where: { email: normalizedEmail },
+      data: {
+        emailVerificationCode: code,
+        emailVerificationExpires: expiresAt,
+        updatedAt: new Date()
+      }
+    })
 
     // Send login verification email
     const sanitizedCode = sanitizeString(code)

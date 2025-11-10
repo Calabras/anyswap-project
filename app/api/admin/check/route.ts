@@ -1,6 +1,6 @@
 // app/api/admin/check/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { sanitizeError } from '@/lib/security/errors'
 
@@ -44,19 +44,19 @@ export async function GET(req: NextRequest) {
     const decoded = jwt.verify(token, jwtSecret) as { userId: string }
     
     // Check if user is admin
-    const result = await query(
-      'SELECT is_admin FROM users WHERE id = $1',
-      [decoded.userId]
-    )
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { isAdmin: true }
+    })
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found', isAdmin: false },
         { status: 404 }
       )
     }
 
-    const isAdmin = result.rows[0].is_admin === true
+    const isAdmin = user.isAdmin === true
 
     return NextResponse.json(
       { isAdmin },

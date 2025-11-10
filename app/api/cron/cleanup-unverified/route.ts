@@ -2,7 +2,7 @@
 // API endpoint to cleanup unverified users (can be called by cron job)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { sanitizeError } from '@/lib/security/errors'
 
 // Optional: Add API key protection for cron jobs
@@ -22,23 +22,49 @@ export async function POST(req: NextRequest) {
     }
 
     // Delete unverified users older than 15 minutes
-    const result = await query(
-      `DELETE FROM users 
-       WHERE email_verified = FALSE 
-       AND (
-         email_verification_expires < NOW() - INTERVAL '15 minutes'
-         OR (email_verification_expires IS NULL AND created_at < NOW() - INTERVAL '15 minutes')
-       )
-       RETURNING id, email, created_at`
-    )
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000)
+    
+    // First get users to be deleted (for logging)
+    const usersToDelete = await prisma.user.findMany({
+      where: {
+        emailVerified: false,
+        OR: [
+          {
+            emailVerificationExpires: {
+              lt: fifteenMinutesAgo
+            }
+          },
+          {
+            emailVerificationExpires: null,
+            createdAt: {
+              lt: fifteenMinutesAgo
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        email: true,
+        createdAt: true
+      }
+    })
+    
+    // Delete them
+    const result = await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: usersToDelete.map(u => u.id)
+        }
+      }
+    })
 
-    const deletedCount = result.rows.length
+    const deletedCount = result.count
 
     return NextResponse.json(
       { 
         message: `Cleaned up ${deletedCount} unverified user(s)`,
         deletedCount,
-        deletedUsers: result.rows.map(u => ({ id: u.id, email: u.email }))
+        deletedUsers: usersToDelete.map(u => ({ id: u.id, email: u.email }))
       },
       { status: 200 }
     )

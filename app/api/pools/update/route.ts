@@ -2,7 +2,7 @@
 // API endpoint to update pool data from Uniswap
 
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { fetchUniswapPoolData } from '@/lib/uniswap/api'
 import { sanitizeError } from '@/lib/security/errors'
 

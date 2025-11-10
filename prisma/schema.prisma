@@ -9,20 +9,29 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime?
-  password      String?
-  walletAddress String?   @unique
-  name          String?
-  image         String?
-  isAdmin       Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                         String    @id @default(uuid()) @db.Uuid
+  email                      String    @unique
+  emailVerified              Boolean?  @default(false) @map("email_verified")
+  password                   String?   @map("password_hash")
+  walletAddress              String?   @unique @map("wallet_address")
+  nickname                   String?   @unique
+  isAdmin                    Boolean   @default(false) @map("is_admin")
+  isBanned                   Boolean   @default(false) @map("is_banned")
+  isActive                   Boolean   @default(true) @map("is_active")
+  authType                   String    @default("email") @map("auth_type") // 'email' or 'wallet'
+  balanceUsd                 Decimal   @default(0.00) @map("balance_usd") @db.Decimal(20, 2)
+  ipAddress                  String?   @map("ip_address")
+  lastLoginAt                DateTime? @map("last_login_at")
+  emailVerificationCode      String?   @map("email_verification_code")
+  emailVerificationExpires   DateTime? @map("email_verification_expires")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at")
   
   positions     Position[]
   transactions  Transaction[]
   sessions      Session[]
+  
+  @@map("users")
 }
 
 model Session {
