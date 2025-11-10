@@ -24,7 +24,7 @@ export class UniswapGraphClient {
     // Build endpoint with API key
     const apiKeyToUse = apiKey || process.env.NEXT_PUBLIC_GRAPH_API_KEY;
     const endpoint = apiKeyToUse 
-      ? baseEndpoint.replace('/subgraphs/id/', `/api/${apiKeyToUse}/subgraphs/id/`)
+      ? baseEndpoint.replace('/api/subgraphs/id/', `/${apiKeyToUse}/subgraphs/id/`)
       : baseEndpoint;
     
     console.log(`🌐 Using Graph endpoint: ${endpoint.substring(0, 60)}...`);
