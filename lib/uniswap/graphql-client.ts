@@ -2,14 +2,15 @@
 import { gql, GraphQLClient } from 'graphql-request';
 
 // The Graph API endpoints for Uniswap V3
-const GRAPH_ENDPOINTS = {
-  mainnet: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
-  polygon: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
-  arbitrum: 'https://api.thegraph.com/subgraphs/name/ianlapham/arbitrum-minimal',
-  optimism: 'https://api.thegraph.com/subgraphs/name/ianlapham/optimism-post-regenesis',
-  base: 'https://api.studio.thegraph.com/query/48211/uniswap-v3-base/version/latest',
-  // Для тестовых сетей
-  sepolia: 'https://api.studio.thegraph.com/query/48211/uniswap-v3-sepolia/version/latest'
+// Using Gateway endpoints which require API key but are reliable
+const GRAPH_ENDPOINTS: Record<string, string> = {
+  // Using The Graph's decentralized network via Gateway
+  // These are the official Uniswap V3 subgraph IDs
+  mainnet: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV', // Uniswap V3 Ethereum
+  polygon: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm', // Uniswap V3 Polygon
+  arbitrum: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM', // Uniswap V3 Arbitrum
+  optimism: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj', // Uniswap V3 Optimism
+  base: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/43Hwfi3dJSoGpyas9VwNoDAv28ijqvXaPAWzfzfgjYdw', // Uniswap V3 Base
 };
 
 export class UniswapGraphClient {
@@ -18,15 +19,20 @@ export class UniswapGraphClient {
 
   constructor(network: string = 'mainnet', apiKey?: string) {
     this.network = network;
-    const endpoint = GRAPH_ENDPOINTS[network as keyof typeof GRAPH_ENDPOINTS] || GRAPH_ENDPOINTS.mainnet;
+    const baseEndpoint = GRAPH_ENDPOINTS[network as keyof typeof GRAPH_ENDPOINTS] || GRAPH_ENDPOINTS.mainnet;
     
-    // Если есть API ключ, используем его
-    const headers: Record<string, string> = {};
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
+    // Build endpoint with API key
+    const apiKeyToUse = apiKey || process.env.NEXT_PUBLIC_GRAPH_API_KEY;
+    const endpoint = apiKeyToUse 
+      ? baseEndpoint.replace('/subgraphs/id/', `/api/${apiKeyToUse}/subgraphs/id/`)
+      : baseEndpoint;
     
-    this.client = new GraphQLClient(endpoint, { headers });
+    console.log(`🌐 Using Graph endpoint: ${endpoint.substring(0, 60)}...`);
+    
+    this.client = new GraphQLClient(endpoint, {
+      headers: {},
+      timeout: 30000, // 30 seconds
+    });
   }
 
   // Получение информации о пуле по адресу
