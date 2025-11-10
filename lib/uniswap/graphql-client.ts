@@ -23,11 +23,27 @@ export class UniswapGraphClient {
     
     // Build endpoint with API key
     const apiKeyToUse = apiKey || process.env.NEXT_PUBLIC_GRAPH_API_KEY;
-    const endpoint = apiKeyToUse 
-      ? baseEndpoint.replace('/api/subgraphs/id/', `/${apiKeyToUse}/subgraphs/id/`)
-      : baseEndpoint;
     
-    console.log(`🌐 Using Graph endpoint: ${endpoint.substring(0, 60)}...`);
+    // Extract subgraph ID from base endpoint
+    // Format: https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/{SUBGRAPH_ID}
+    const subgraphIdMatch = baseEndpoint.match(/\/subgraphs\/id\/([^\/]+)/);
+    const subgraphId = subgraphIdMatch ? subgraphIdMatch[1] : null;
+    
+    let endpoint;
+    if (apiKeyToUse && subgraphId) {
+      // Build proper Gateway URL: https://gateway-arbitrum.network.thegraph.com/api/{KEY}/subgraphs/id/{ID}
+      endpoint = `https://gateway-arbitrum.network.thegraph.com/api/${apiKeyToUse}/subgraphs/id/${subgraphId}`;
+      console.log(`🌐 Using Graph Gateway with API key for ${network}`);
+    } else if (apiKeyToUse) {
+      // Fallback: try to insert API key into URL
+      endpoint = baseEndpoint;
+      console.warn(`⚠️ Could not extract subgraph ID from ${baseEndpoint}`);
+    } else {
+      // No API key - will likely fail
+      endpoint = baseEndpoint;
+      console.warn(`⚠️ No API key provided! The Graph requires authentication.`);
+      console.warn(`Get free API key at: https://thegraph.com/studio/`);
+    }
     
     this.client = new GraphQLClient(endpoint, {
       headers: {},
