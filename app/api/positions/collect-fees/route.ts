@@ -70,12 +70,26 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Update user balance (Prisma)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { balanceUsd: true, walletAddress: true },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { message: 'User not found' },
+        { status: 404 }
+      )
+    }
+
     // Collect fees using Uniswap SDK
     const feesData = await collectFeesData({
       positionId: position.tokenId || '',
       poolAddress: position.pool.address,
       token0Address: position.pool.token0Address,
       token1Address: position.pool.token1Address,
+      recipientAddress: user.walletAddress || undefined,
     })
 
     // Convert fees to USD using Binance API
@@ -95,19 +109,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { message: 'No fees to collect' },
         { status: 400 }
-      )
-    }
-
-    // Update user balance (Prisma)
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { balanceUsd: true },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { message: 'User not found' },
-        { status: 404 }
       )
     }
 

@@ -27,6 +27,7 @@ interface Pool {
   volumeUSD: number;
   liquidity: string;
   apr?: number;
+  fees24h?: number;
 }
 
 const NETWORK_COLORS = {
@@ -55,34 +56,13 @@ export default function PoolsPage() {
       const response = await fetch('/api/pools');
       const data = await response.json();
       if (data.success) {
-        // Calculate APR for each pool
-        const poolsWithAPR = data.pools.map((pool: any) => ({
-          ...pool,
-          apr: calculateAPR(pool)
-        }));
-        setPools(poolsWithAPR);
+        setPools(data.pools);
       }
     } catch (error) {
       console.error('Error fetching pools:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateAPR = (pool: any) => {
-    // Simplified APR calculation
-    // In production, use actual fees collected and liquidity data
-    const dailyVolume = pool.volumeUSD;
-    const tvl = pool.tvlUSD;
-    const feePercent = pool.fee / 10000; // Convert basis points to percentage
-    
-    if (tvl === 0) return 0;
-    
-    const dailyFees = dailyVolume * feePercent;
-    const dailyReturn = dailyFees / tvl;
-    const annualReturn = dailyReturn * 365;
-    
-    return annualReturn * 100; // Convert to percentage
   };
 
   const formatUSD = (value: number) => {
@@ -184,8 +164,10 @@ export default function PoolsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Активных пулов</p>
-                <p className="text-2xl font-bold text-gray-900">{pools.length}</p>
+                <p className="text-sm text-gray-600">Комиссии 24ч</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatUSD(pools.reduce((acc, pool) => acc + (pool.fees24h || 0), 0))}
+                </p>
               </div>
               <Users className="w-8 h-8 text-purple-600" />
             </div>
@@ -197,7 +179,9 @@ export default function PoolsPage() {
                 <p className="text-sm text-gray-600">Средний APR</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {formatAPR(
-                    pools.reduce((acc, pool) => acc + (pool.apr || 0), 0) / pools.length
+                    pools.length > 0
+                      ? pools.reduce((acc, pool) => acc + (pool.apr || 0), 0) / pools.length
+                      : 0
                   )}
                 </p>
               </div>
@@ -341,6 +325,12 @@ export default function PoolsPage() {
                     <span className="text-sm text-gray-600">Объем 24ч</span>
                     <span className="text-sm font-medium text-gray-900">
                       {formatUSD(pool.volumeUSD)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Комиссии 24ч</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatUSD(pool.fees24h || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">

@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, CreditCard, Wallet, DollarSign } from 'lucide-react'
+import { ArrowLeft, CreditCard, DollarSign } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useToast } from '@/components/ToastProvider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 
-type PaymentMethod = 'cryptomus' | 'card' | 'wallet' | 'test'
+type PaymentMethod = 'cryptomus' | 'card' | 'test'
 
 export default function DepositPage() {
   const { t } = useTranslation()
@@ -64,11 +64,6 @@ export default function DepositPage() {
         await new Promise((resolve) => setTimeout(resolve, 2000))
         showToast(t('deposit.success', 'Deposit of {{amount}}$ successful', { amount }), 'success')
         router.push('/dashboard')
-      } else if (selectedMethod === 'wallet') {
-        // TODO: Handle wallet payment
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        showToast(t('deposit.success', 'Deposit of {{amount}}$ successful', { amount }), 'success')
-        router.push('/dashboard')
       } else if (selectedMethod === 'test') {
         // Test payment - instantly add balance
         try {
@@ -89,9 +84,9 @@ export default function DepositPage() {
 
           if (response.ok) {
             const data = await response.json()
-            showToast(t('deposit.success', 'Deposit of {{amount}}$ successful', { amount }), 'success')
-            // Update user balance in store if needed
-            router.push('/dashboard')
+              showToast(t('deposit.success', 'Deposit of {{amount}}$ successful', { amount }), 'success')
+              // Update user balance in store if needed
+              router.push('/dashboard')
           } else {
             const errorData = await response.json()
             showToast(errorData.message || t('deposit.depositError', 'Error depositing balance'), 'error')
@@ -178,28 +173,6 @@ export default function DepositPage() {
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {t('deposit.russia', 'Russia')}
-                  </span>
-                </div>
-              </button>
-
-              {/* Wallet */}
-              <button
-                onClick={() => setSelectedMethod('wallet')}
-                className={`p-4 rounded-lg border-2 transition-all glow-border ${
-                  selectedMethod === 'wallet'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:border-primary'
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-                    <Wallet className="w-6 h-6 text-primary" />
-                  </div>
-                  <span className="font-medium text-sm">
-                    {t('deposit.wallet', 'Wallet')}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('deposit.connected', 'Connected')}
                   </span>
                 </div>
               </button>

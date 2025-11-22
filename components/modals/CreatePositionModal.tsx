@@ -4,6 +4,8 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FiX, FiInfo, FiTrendingUp, FiAlertCircle } from 'react-icons/fi'
+import { useAuthStore } from '@/store/authStore'
+import { useToast } from '@/components/ToastProvider'
 
 interface CreatePositionModalProps {
   pool: any
@@ -12,6 +14,8 @@ interface CreatePositionModalProps {
 
 const CreatePositionModal: React.FC<CreatePositionModalProps> = ({ pool, onClose }) => {
   const { t } = useTranslation()
+  const { token, isAuthenticated } = useAuthStore()
+  const { showToast } = useToast()
   const [step, setStep] = useState(1)
   const [amountUSD, setAmountUSD] = useState<string>('') // single USD input
   const [loading, setLoading] = useState(false)
@@ -31,6 +35,11 @@ const CreatePositionModal: React.FC<CreatePositionModalProps> = ({ pool, onClose
   const token1Allocated = isStableQuote ? (usd / 2) : 0
 
   const handleCreatePosition = async () => {
+    if (!isAuthenticated || !token) {
+      showToast(t('auth.required', 'Please log in before creating a position'), 'error')
+      return
+    }
+
     setLoading(true)
     try {
       // save last range locally for chart highlight on pool page
@@ -45,7 +54,10 @@ const CreatePositionModal: React.FC<CreatePositionModalProps> = ({ pool, onClose
       // Call API to create position (USD based)
       const response = await fetch('/api/positions/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           poolId: pool?.id,
           amountUSD: parseFloat(amountUSD || '0'),
@@ -58,9 +70,13 @@ const CreatePositionModal: React.FC<CreatePositionModalProps> = ({ pool, onClose
       if (response.ok) {
         // Success
         onClose()
+      } else {
+        const error = await response.json()
+        showToast(error?.message || t('position.createError', 'Failed to create position'), 'error')
       }
     } catch (error) {
       console.error('Failed to create position:', error)
+      showToast(t('position.createError', 'Failed to create position'), 'error')
     } finally {
       setLoading(false)
     }

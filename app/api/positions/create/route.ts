@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     // Get user balance via Prisma
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { balanceUsd: true },
+      select: { balanceUsd: true, walletAddress: true },
     })
 
     if (!user) {
@@ -110,14 +110,15 @@ export async function POST(req: NextRequest) {
       token1Address: pool.token1Address,
       token0Symbol: pool.token0Symbol,
       token1Symbol: pool.token1Symbol,
-      token0Decimals: 18, // Default, should be fetched from token contract
-      token1Decimals: 18, // Default, should be fetched from token contract
+      token0Decimals: pool.token0Decimals,
+      token1Decimals: pool.token1Decimals,
       feeTier: pool.fee,
       amountUSD: parseFloat(amountUSD),
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
       isFullRange: isFullRange || false,
       currentPrice,
+      recipientAddress: user.walletAddress || undefined,
     })
 
     // Deduct amount from user balance
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         poolId: pool.id,
-        tokenId: positionData.positionId,
+        tokenId: positionData.positionId || positionData.txHash || '',
         tickLower: positionData.tickLower,
         tickUpper: positionData.tickUpper,
         liquidity: '0',
@@ -154,10 +155,12 @@ export async function POST(req: NextRequest) {
         amountUSD: parseFloat(amountUSD),
         metadata: {
           poolId,
-          positionId: positionData.positionId,
+          positionId: positionData.positionId || positionData.txHash,
           tickLower: positionData.tickLower,
           tickUpper: positionData.tickUpper,
           isFullRange,
+          calldata: positionData.calldata,
+          value: positionData.value,
         } as any,
       },
     })
@@ -173,6 +176,10 @@ export async function POST(req: NextRequest) {
           tickUpper: positionData.tickUpper,
           priceLower: positionData.priceLower,
           priceUpper: positionData.priceUpper,
+          calldata: positionData.calldata,
+          value: positionData.value,
+          to: positionData.to,
+          txHash: positionData.txHash,
         },
       },
       { status: 200 }

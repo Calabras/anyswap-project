@@ -68,6 +68,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Update user balance via Prisma
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { balanceUsd: true, walletAddress: true },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { message: 'User not found' },
+        { status: 404 }
+      )
+    }
+
     // Collect fees if requested
     let totalFeesUSD = 0
     if (collectFees) {
@@ -76,6 +89,7 @@ export async function POST(req: NextRequest) {
         poolAddress: position.pool.address,
         token0Address: position.pool.token0Address,
         token1Address: position.pool.token1Address,
+        recipientAddress: user.walletAddress || undefined,
       })
 
       // Convert fees to USD
@@ -94,6 +108,7 @@ export async function POST(req: NextRequest) {
       token0Address: position.pool.token0Address,
       token1Address: position.pool.token1Address,
       collectFees,
+      recipientAddress: user.walletAddress || undefined,
     })
 
     // Convert returned tokens to USD
@@ -103,19 +118,6 @@ export async function POST(req: NextRequest) {
     const token0AmountUSD = parseFloat(closeData.token0Amount) * (token0Price || 0)
     const token1AmountUSD = parseFloat(closeData.token1Amount) * (token1Price || 0)
     const totalReturnUSD = token0AmountUSD + token1AmountUSD + totalFeesUSD
-
-    // Update user balance via Prisma
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { balanceUsd: true },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { message: 'User not found' },
-        { status: 404 }
-      )
-    }
 
     const currentBalance = parseFloat(user.balanceUsd.toString())
     const newBalance = currentBalance + totalReturnUSD
