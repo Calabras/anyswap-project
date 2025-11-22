@@ -46,7 +46,21 @@ export default function PoolDetailsPage() {
   const formatUSD = (v: number) =>
     v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${v.toFixed(2)}`
 
-  const chartPoints = (data?.pool.dayData || []).map(d => ({ x: new Date(d.date).getTime(), y: d.volumeUSD }))
+  const rangeToDays: Record<typeof range, number> = {
+    '1D': 1,
+    '1W': 7,
+    '1M': 30,
+    '1Y': 365,
+  }
+
+  const filteredDayData = (data?.pool.dayData || []).filter(d => {
+    const days = rangeToDays[range]
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+    return new Date(d.date).getTime() >= cutoff
+  })
+
+  const chartPoints = filteredDayData.map(d => ({ x: new Date(d.date).getTime(), y: d.volumeUSD }))
+  const pricePoints = filteredDayData.map(d => ({ x: new Date(d.date).getTime(), y: d.close }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,10 +111,13 @@ export default function PoolDetailsPage() {
             </div>
           </div>
 
-          {/* Simple Volume Chart */}
+          {/* Simple Volume & Price Chart */}
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm text-muted-foreground">Volume</div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Volume</div>
+                <div className="text-xs text-muted-foreground">Цена (закрытие) отображается линией</div>
+              </div>
               <div className="flex gap-2">
                 {(['1D', '1W', '1M', '1Y'] as const).map(r => (
                   <button
@@ -115,12 +132,32 @@ export default function PoolDetailsPage() {
                 ))}
               </div>
             </div>
-            <div className="h-48 flex items-end gap-1">
-              {chartPoints.map((p, i) => {
-                const max = Math.max(...chartPoints.map(v => v.y), 1)
-                const h = Math.max(2, (p.y / max) * 180)
-                return <div key={i} className="bg-primary/60" style={{ width: 6, height: h }} />
-              })}
+            <div className="h-56 relative">
+              <div className="absolute inset-0 flex items-end gap-1">
+                {chartPoints.map((p, i) => {
+                  const max = Math.max(...chartPoints.map(v => v.y), 1)
+                  const h = Math.max(2, (p.y / max) * 180)
+                  return <div key={i} className="bg-primary/60" style={{ width: 6, height: h }} />
+                })}
+              </div>
+              {pricePoints.length > 1 && (
+                <svg className="absolute inset-0" viewBox={`0 0 ${pricePoints.length - 1} 200`} preserveAspectRatio="none">
+                  {(() => {
+                    const ys = pricePoints.map(p => p.y)
+                    const maxY = Math.max(...ys)
+                    const minY = Math.min(...ys)
+                    const span = maxY - minY || 1
+                    const path = pricePoints
+                      .map((p, idx) => {
+                        const x = idx
+                        const y = 200 - ((p.y - minY) / span) * 200
+                        return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`
+                      })
+                      .join(' ')
+                    return <path d={path} fill="none" stroke="#22c55e" strokeWidth="2" />
+                  })()}
+                </svg>
+              )}
             </div>
           </div>
 
