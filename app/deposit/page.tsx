@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 
-type PaymentMethod = 'cryptomus' | 'card' | 'wallet' | 'test'
+type PaymentMethod = 'cryptomus' | 'card' | 'test'
 
 export default function DepositPage() {
   const { t } = useTranslation()
@@ -61,11 +61,6 @@ export default function DepositPage() {
       } else if (selectedMethod === 'card') {
         // TODO: Integrate with Vanilapay API
         // For now, simulate payment
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        showToast(t('deposit.success', 'Deposit of {{amount}}$ successful', { amount }), 'success')
-        router.push('/dashboard')
-      } else if (selectedMethod === 'wallet') {
-        // TODO: Handle wallet payment
         await new Promise((resolve) => setTimeout(resolve, 2000))
         showToast(t('deposit.success', 'Deposit of {{amount}}$ successful', { amount }), 'success')
         router.push('/dashboard')
@@ -139,7 +134,7 @@ export default function DepositPage() {
             <CardTitle>{t('deposit.paymentMethod', 'Payment Method')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Cryptomus */}
               <button
                 onClick={() => setSelectedMethod('cryptomus')}
@@ -178,28 +173,6 @@ export default function DepositPage() {
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {t('deposit.russia', 'Russia')}
-                  </span>
-                </div>
-              </button>
-
-              {/* Wallet */}
-              <button
-                onClick={() => setSelectedMethod('wallet')}
-                className={`p-4 rounded-lg border-2 transition-all glow-border ${
-                  selectedMethod === 'wallet'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:border-primary'
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
-                    <Wallet className="w-6 h-6 text-primary" />
-                  </div>
-                  <span className="font-medium text-sm">
-                    {t('deposit.wallet', 'Wallet')}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('deposit.connected', 'Connected')}
                   </span>
                 </div>
               </button>
