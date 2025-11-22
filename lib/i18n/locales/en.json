@@ -36,7 +36,8 @@
     "completing": "Completing...",
     "completeRegistration": "Complete Registration",
     "registrationComplete": "Registration Complete!",
-    "redirecting": "Redirecting to your dashboard..."
+    "redirecting": "Redirecting to your dashboard...",
+    "loginSuccess": "Login successful!"
   },
   "home": {
     "title": "Advanced Liquidity Management",

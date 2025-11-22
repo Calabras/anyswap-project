@@ -46,67 +46,138 @@ export async function GET(request: NextRequest) {
         orderBy.tvlUSD = 'desc';
     }
 
-    // Получаем пулы
-    const [pools, total] = await Promise.all([
-      prisma.pool.findMany({
-        where,
-        orderBy,
-        take: limit,
-        skip: offset,
-        select: {
-          id: true,
-          address: true,
-          network: true,
-          token0Address: true,
-          token0Symbol: true,
-          token0Name: true,
-          token0Decimals: true,
-          token1Address: true,
-          token1Symbol: true,
-          token1Name: true,
-          token1Decimals: true,
-          fee: true,
-          liquidity: true,
-          sqrtPriceX96: true,
-          tick: true,
-          volumeUSD: true,
-          tvlUSD: true,
-          txCount: true,
-          updatedAt: true
-        }
-      }),
-      prisma.pool.count({ where })
-    ]);
+    // Получаем пулы с последними дневными данными
+    const pools = await prisma.pool.findMany({
+      where,
+      orderBy,
+      take: limit,
+      skip: offset,
+      select: {
+        id: true,
+        address: true,
+        network: true,
+        token0Address: true,
+        token0Symbol: true,
+        token0Name: true,
+        token0Decimals: true,
+        token1Address: true,
+        token1Symbol: true,
+        token1Name: true,
+        token1Decimals: true,
+        fee: true,
+        liquidity: true,
+        sqrtPriceX96: true,
+        tick: true,
+        volumeUSD: true,
+        tvlUSD: true,
+        txCount: true,
+        updatedAt: true
+      }
+    });
 
-    // Форматируем ответ
-    const formattedPools = pools.map(pool => ({
-      id: pool.id,
-      address: pool.address,
-      network: pool.network,
-      pair: `${pool.token0Symbol}/${pool.token1Symbol}`,
-      token0: {
-        address: pool.token0Address,
-        symbol: pool.token0Symbol,
-        name: pool.token0Name,
-        decimals: pool.token0Decimals
+    // Получаем последние дневные данные для каждого пула (берем 2 дня, чтобы выбрать полный день)
+    const poolIds = pools.map(p => p.id);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const recentDayData = await prisma.poolDayData.findMany({
+      where: {
+        poolId: { in: poolIds }
       },
-      token1: {
-        address: pool.token1Address,
-        symbol: pool.token1Symbol,
-        name: pool.token1Name,
-        decimals: pool.token1Decimals
-      },
-      fee: pool.fee,
-      liquidity: pool.liquidity,
-      sqrtPriceX96: pool.sqrtPriceX96,
-      tick: pool.tick,
-      volumeUSD: pool.volumeUSD,
-      tvlUSD: pool.tvlUSD,
-      txCount: pool.txCount,
-      token0Symbol: pool.token0Symbol,
-      token1Symbol: pool.token1Symbol,
-      updatedAt: pool.updatedAt
-    }));
+      orderBy: { date: 'desc' }
+    });
+
+    // Создаем мапу, выбирая последний ПОЛНЫЙ день (не сегодняшний)
+    const dayDataMap = new Map<string, typeof recentDayData[0]>();
+    for (const poolId of poolIds) {
+      const poolDays = recentDayData.filter(d => d.poolId === poolId);
+      // Ищем последний день, который НЕ сегодня (полный день)
+      const fullDay = poolDays.find(d => {
+        const dayDate = new Date(d.date);
+        return dayDate < todayStart;
+      });
+      // Если есть полный день, используем его, иначе используем последний доступный
+      if (fullDay) {
+        dayDataMap.set(poolId, fullDay);
+      } else if (poolDays.length > 0) {
+        // Fallback: используем последний доступный день (может быть неполным)
+        dayDataMap.set(poolId, poolDays[0]);
+      }
+    }
+
+    const total = await prisma.pool.count({ where });
+
+    // Форматируем ответ с использованием poolDayData
+    const formattedPools = pools.map(pool => {
+      const latestFullDay = dayDataMap.get(pool.id);
+      
+      // ВАЖНО: Используем последний ПОЛНЫЙ день для volume и fees
+      // TVL используем из pool (текущее актуальное значение)
+      const volume24h = latestFullDay?.volumeUSD || 0;
+      const fees24h = latestFullDay?.feesUSD || 0; // fees24h ТОЛЬКО из poolDayData!
+      const tvl = pool.tvlUSD || 0; // Текущее значение из pool, не из dayData!
+      
+      // Рассчитываем APR из реальных 24h fees: (fees24h / tvl) * 365 * 100
+      // Затем вычитаем 1% для отображения пользователю (если APR >= 1%)
+      let apr = tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0;
+      if (apr >= 1) {
+        apr = apr - 1; // Вычитаем 1% (наша комиссия)
+      }
+      
+      // Логируем для первого пула (для отладки)
+      if (pool.id === pools[0]?.id) {
+        console.log(`📊 API /api/pools - Pool ${pool.address}:`, {
+          hasDayData: !!latestFullDay,
+          dayDataDate: latestFullDay ? new Date(latestFullDay.date).toISOString() : null,
+          fromPool: {
+            volumeUSD: pool.volumeUSD,
+            tvlUSD: pool.tvlUSD
+          },
+          fromDayData: {
+            volumeUSD: latestFullDay?.volumeUSD,
+            feesUSD: latestFullDay?.feesUSD,
+            tvlUSD: latestFullDay?.tvlUSD
+          },
+          final: {
+            volume24h,
+            fees24h,
+            tvl,
+            apr
+          }
+        });
+      }
+      
+      return {
+        id: pool.id,
+        address: pool.address,
+        network: pool.network,
+        pair: `${pool.token0Symbol}/${pool.token1Symbol}`,
+        token0: {
+          address: pool.token0Address,
+          symbol: pool.token0Symbol,
+          name: pool.token0Name,
+          decimals: pool.token0Decimals
+        },
+        token1: {
+          address: pool.token1Address,
+          symbol: pool.token1Symbol,
+          name: pool.token1Name,
+          decimals: pool.token1Decimals
+        },
+        fee: pool.fee,
+        liquidity: pool.liquidity,
+        sqrtPriceX96: pool.sqrtPriceX96,
+        tick: pool.tick,
+        volumeUSD: volume24h,
+        tvlUSD: tvl,
+        txCount: pool.txCount,
+        token0Symbol: pool.token0Symbol,
+        token1Symbol: pool.token1Symbol,
+        updatedAt: pool.updatedAt,
+        apr,
+        fees24h,
+      }
+    });
 
     return NextResponse.json({
       success: true,

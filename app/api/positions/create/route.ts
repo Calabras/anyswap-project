@@ -65,38 +65,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get pool data
-    const poolResult = await query(
-      `SELECT id, pool_address, network, token0_symbol, token1_symbol, 
-              token0_address, token1_address, fee_tier, tvl_usd, apr
-       FROM liquidity_pools 
-       WHERE id = $1 AND is_active = TRUE`,
-      [poolId]
-    )
+    // Get pool data via Prisma
+    const pool = await prisma.pool.findFirst({
+      where: { id: poolId, isActive: true },
+    })
 
-    if (poolResult.rows.length === 0) {
+    if (!pool) {
       return NextResponse.json(
         { message: 'Pool not found' },
         { status: 404 }
       )
     }
 
-    const pool = poolResult.rows[0]
+    // Get user balance via Prisma
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { balanceUsd: true },
+    })
 
-    // Get user balance
-    const userResult = await query(
-      'SELECT balance_usd FROM users WHERE id = $1',
-      [userId]
-    )
-
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
         { status: 404 }
       )
     }
 
-    const userBalance = parseFloat(userResult.rows[0].balance_usd)
+    const userBalance = parseFloat(user.balanceUsd.toString())
 
     if (userBalance < parseFloat(amountUSD)) {
       return NextResponse.json(
@@ -111,14 +105,14 @@ export async function POST(req: NextRequest) {
 
     // Create position data using Uniswap SDK logic
     const positionData = await createPositionData({
-      poolAddress: pool.pool_address,
-      token0Address: pool.token0_address,
-      token1Address: pool.token1_address,
-      token0Symbol: pool.token0_symbol,
-      token1Symbol: pool.token1_symbol,
+      poolAddress: pool.address,
+      token0Address: pool.token0Address,
+      token1Address: pool.token1Address,
+      token0Symbol: pool.token0Symbol,
+      token1Symbol: pool.token1Symbol,
       token0Decimals: 18, // Default, should be fetched from token contract
       token1Decimals: 18, // Default, should be fetched from token contract
-      feeTier: pool.fee_tier,
+      feeTier: pool.fee,
       amountUSD: parseFloat(amountUSD),
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
@@ -129,58 +123,52 @@ export async function POST(req: NextRequest) {
     // Deduct amount from user balance
     const newBalance = userBalance - parseFloat(amountUSD)
 
-    await query(
-      `UPDATE users 
-       SET balance_usd = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [newBalance, userId]
-    )
+    await prisma.user.update({
+      where: { id: userId },
+      data: { balanceUsd: newBalance },
+    })
 
-    // Create position record
-    const positionResult = await query(
-      `INSERT INTO user_positions (
-        user_id, pool_id, position_id, amount_usd, 
-        min_price, max_price, is_full_range, status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-      RETURNING id, position_id, amount_usd, created_at`,
-      [
+    // Create position record in Prisma schema
+    const position = await prisma.position.create({
+      data: {
         userId,
-        poolId,
-        positionData.positionId,
-        parseFloat(amountUSD),
-        minPrice ? parseFloat(minPrice) : null,
-        maxPrice ? parseFloat(maxPrice) : null,
-        isFullRange || false,
-      ]
-    )
-
-    const position = positionResult.rows[0]
+        poolId: pool.id,
+        tokenId: positionData.positionId,
+        tickLower: positionData.tickLower,
+        tickUpper: positionData.tickUpper,
+        liquidity: '0',
+        amount0: '0',
+        amount1: '0',
+        status: 'ACTIVE',
+      },
+    })
 
     // Log transaction
-    await query(
-      `INSERT INTO transactions (user_id, type, amount_usd, status, metadata)
-       VALUES ($1, 'position_open', $2, 'completed', $3)`,
-      [
+    await prisma.transaction.create({
+      data: {
         userId,
-        parseFloat(amountUSD),
-        JSON.stringify({
+        type: 'ADD_LIQUIDITY',
+        status: 'CONFIRMED',
+        network: pool.network,
+        amount: amountUSD.toString(),
+        amountUSD: parseFloat(amountUSD),
+        metadata: {
           poolId,
           positionId: positionData.positionId,
           tickLower: positionData.tickLower,
           tickUpper: positionData.tickUpper,
           isFullRange,
-        }),
-      ]
-    )
+        } as any,
+      },
+    })
 
     return NextResponse.json(
       {
         message: 'Position created successfully',
         position: {
           id: position.id,
-          positionId: position.position_id,
-          amountUSD: position.amount_usd,
+          positionId: position.tokenId,
+          amountUSD: parseFloat(amountUSD),
           tickLower: positionData.tickLower,
           tickUpper: positionData.tickUpper,
           priceLower: positionData.priceLower,

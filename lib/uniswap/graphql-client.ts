@@ -11,6 +11,21 @@ const GRAPH_ENDPOINTS: Record<string, string> = {
   arbitrum: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM', // Uniswap V3 Arbitrum
   optimism: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj', // Uniswap V3 Optimism
   base: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/43Hwfi3dJSoGpyas9VwNoDAv28ijqvXaPAWzfzfgjYdw', // Uniswap V3 Base
+  bnb: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV', // BNB Chain (using mainnet for now, need actual subgraph)
+  solana: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV', // Solana (using mainnet for now, need actual subgraph)
+  unichain: 'https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV', // Unichain (using mainnet for now, need actual subgraph)
+};
+
+// Public hosted-service endpoints (no API key). Useful for development.
+const PUBLIC_ENDPOINTS: Record<string, string> = {
+  mainnet: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
+  polygon: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
+  arbitrum: 'https://api.thegraph.com/subgraphs/name/ianlapham/arbitrum-minimal',
+  optimism: 'https://api.thegraph.com/subgraphs/name/ianlapham/optimism-post-regenesis',
+  base: 'https://api.thegraph.com/subgraphs/name/ianlapham/base-v3',
+  bnb: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3', // Placeholder
+  solana: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3', // Placeholder
+  unichain: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3', // Placeholder
 };
 
 export class UniswapGraphClient {
@@ -34,15 +49,10 @@ export class UniswapGraphClient {
       // Build proper Gateway URL: https://gateway-arbitrum.network.thegraph.com/api/{KEY}/subgraphs/id/{ID}
       endpoint = `https://gateway-arbitrum.network.thegraph.com/api/${apiKeyToUse}/subgraphs/id/${subgraphId}`;
       console.log(`🌐 Using Graph Gateway with API key for ${network}`);
-    } else if (apiKeyToUse) {
-      // Fallback: try to insert API key into URL
-      endpoint = baseEndpoint;
-      console.warn(`⚠️ Could not extract subgraph ID from ${baseEndpoint}`);
     } else {
-      // No API key - will likely fail
-      endpoint = baseEndpoint;
-      console.warn(`⚠️ No API key provided! The Graph requires authentication.`);
-      console.warn(`Get free API key at: https://thegraph.com/studio/`);
+      // No API key provided → use public hosted endpoint for development
+      endpoint = PUBLIC_ENDPOINTS[network as keyof typeof PUBLIC_ENDPOINTS] || PUBLIC_ENDPOINTS.mainnet;
+      console.warn(`⚠️ No API key provided. Falling back to public The Graph endpoint for ${network}.`);
     }
     
     this.client = new GraphQLClient(endpoint, {
@@ -84,6 +94,32 @@ export class UniswapGraphClient {
           tick
           observationIndex
           liquidityProviderCount
+          poolDayData(
+            first: 2
+            orderBy: date
+            orderDirection: desc
+          ) {
+            date
+            volumeUSD
+            feesUSD
+            tvlUSD
+            volumeToken0
+            volumeToken1
+            txCount
+          }
+          poolHourData(
+            first: 26
+            orderBy: periodStartUnix
+            orderDirection: desc
+          ) {
+            periodStartUnix
+            volumeUSD
+            feesUSD
+            tvlUSD
+            volumeToken0
+            volumeToken1
+            txCount
+          }
         }
       }
     `;
@@ -92,10 +128,32 @@ export class UniswapGraphClient {
       const variables = { 
         poolAddress: poolAddress.toLowerCase() 
       };
+      console.log(`🔍 GraphQL query for pool ${poolAddress} on ${this.network}`);
       const data = await this.client.request(query, variables);
+      
+      if (data.pool) {
+        console.log(`✅ Pool data received:`, {
+          id: data.pool.id,
+          pair: `${data.pool.token0.symbol}/${data.pool.token1.symbol}`,
+          totalValueLockedUSD: data.pool.totalValueLockedUSD,
+          volumeUSD: data.pool.volumeUSD,
+          poolDayDataCount: data.pool.poolDayData?.length || 0,
+          latestDayData: data.pool.poolDayData?.[0] ? {
+            date: new Date(data.pool.poolDayData[0].date * 1000).toISOString(),
+            volumeUSD: data.pool.poolDayData[0].volumeUSD,
+            feesUSD: data.pool.poolDayData[0].feesUSD,
+            tvlUSD: data.pool.poolDayData[0].tvlUSD
+          } : null
+        });
+      }
+      
       return data.pool;
     } catch (error) {
-      console.error('Error fetching pool:', error);
+      console.error('❌ Error fetching pool:', error);
+      if (error instanceof Error) {
+        console.error('   Error message:', error.message);
+        console.error('   Error stack:', error.stack);
+      }
       throw new Error(`Failed to fetch pool data: ${error}`);
     }
   }
@@ -131,18 +189,39 @@ export class UniswapGraphClient {
           volumeUSD
           totalValueLockedUSD
           txCount
+          tick
           liquidityProviderCount
         }
       }
     `;
 
     try {
+      console.log(`🔍 Fetching top ${limit} pools from ${this.network}...`);
       const variables = { limit, orderBy };
       const data = await this.client.request(query, variables);
+      
+      if (!data || !data.pools) {
+        console.warn(`⚠️ No pools data returned from GraphQL query`);
+        return [];
+      }
+      
+      console.log(`✅ Successfully fetched ${data.pools.length} pools`);
       return data.pools;
-    } catch (error) {
-      console.error('Error fetching top pools:', error);
-      throw new Error(`Failed to fetch top pools: ${error}`);
+    } catch (error: any) {
+      console.error(`❌ GraphQL error fetching top pools for ${this.network}:`, error);
+      console.error(`   Error message:`, error?.message);
+      console.error(`   Error response:`, error?.response);
+      console.error(`   Error request:`, error?.request);
+      
+      // Provide more detailed error message
+      let errorMessage = 'Failed to fetch top pools';
+      if (error?.response?.errors) {
+        errorMessage = error.response.errors.map((e: any) => e.message).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(`${errorMessage} (network: ${this.network})`);
     }
   }
 

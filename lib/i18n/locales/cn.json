@@ -34,7 +34,8 @@
     "completing": "完成中...",
     "completeRegistration": "完成注册",
     "registrationComplete": "注册完成！",
-    "redirecting": "正在重定向到您的仪表板..."
+    "redirecting": "正在重定向到您的仪表板...",
+    "loginSuccess": "登录成功！"
   },
   "home": {
     "title": "高级流动性管理",

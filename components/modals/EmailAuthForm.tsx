@@ -38,23 +38,36 @@ const EmailAuthForm: React.FC<EmailAuthFormProps> = ({ initialEmail = '', onBack
 
   // Auto-send verification code when component mounts with email (only once)
   const [hasAutoSent, setHasAutoSent] = React.useState(false)
+  const lastSendAtRef = React.useRef<number>(0)
+  const sendingRef = React.useRef<boolean>(false)
   React.useEffect(() => {
     if (email && step === 'verification' && !hasAutoSent) {
       setHasAutoSent(true)
-      handleEmailSubmit()
+      handleEmailSubmit(undefined, 'auto')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const [isLogin, setIsLogin] = useState(false)
 
-  const handleEmailSubmit = async (e?: React.FormEvent) => {
+  const handleEmailSubmit = async (e?: React.FormEvent, mode: 'auto' | 'manual' = 'manual') => {
     if (e) e.preventDefault()
+    // Prevent duplicate immediate sends (debounce)
+    const now = Date.now()
+    if (sendingRef.current || (now - lastSendAtRef.current) < 2000) {
+      return
+    }
+    // If we already auto-sent when entering verification step, don't auto-send again
+    if (mode === 'auto' && hasAutoSent) {
+      return
+    }
     if (!email) {
       setError('Email is required')
       return
     }
     
+    sendingRef.current = true
+    lastSendAtRef.current = now
     setLoading(true)
     setError('')
 
@@ -87,6 +100,7 @@ const EmailAuthForm: React.FC<EmailAuthFormProps> = ({ initialEmail = '', onBack
       setError('Network error. Please try again.')
     } finally {
       setLoading(false)
+      sendingRef.current = false
     }
   }
 
@@ -129,6 +143,7 @@ const EmailAuthForm: React.FC<EmailAuthFormProps> = ({ initialEmail = '', onBack
           const { useAuthStore } = await import('@/store/authStore')
           useAuthStore.getState().login(data.user, data.token)
           
+          setIsLogin(true)
           setStep('complete')
           setTimeout(() => {
             onSuccess()
@@ -450,7 +465,9 @@ const EmailAuthForm: React.FC<EmailAuthFormProps> = ({ initialEmail = '', onBack
           <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 glow-border">
             <Check className="w-10 h-10 text-green-400" />
           </div>
-          <h3 className="text-xl font-semibold mb-2 text-foreground">{t('auth.registrationComplete', 'Registration Complete!')}</h3>
+          <h3 className="text-xl font-semibold mb-2 text-foreground">
+            {isLogin ? t('auth.loginSuccess', 'Login successful!') : t('auth.registrationComplete', 'Registration Complete!')}
+          </h3>
           <p className="text-muted-foreground">{t('auth.redirecting', 'Redirecting...')}</p>
         </div>
       )}

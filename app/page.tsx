@@ -14,18 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface Pool {
   id: string
-  pool_address: string
+  address: string
   network: string
-  token0_symbol: string
-  token1_symbol: string
-  token0_address: string
-  token1_address: string
-  fee_tier: number
-  tvl_usd: number
-  volume_24h_usd: number
-  fees_24h_usd: number
-  apr: number
-  uniswap_url?: string
+  token0Symbol: string
+  token1Symbol: string
+  token0Address: string
+  token1Address: string
+  fee: number
+  tvlUSD: number
+  volumeUSD: number
+  apr?: number
 }
 
 export default function HomePage() {
@@ -84,10 +82,10 @@ export default function HomePage() {
   }
 
   const stats = {
-    totalTVL: pools.reduce((acc, pool) => acc + (pool.tvl_usd || 0), 0),
-    totalVolume24h: pools.reduce((acc, pool) => acc + (pool.volume_24h_usd || 0), 0),
+    totalTVL: pools.reduce((acc, pool) => acc + (pool.tvlUSD || 0), 0),
+    totalVolume24h: pools.reduce((acc, pool) => acc + (pool.volumeUSD || 0), 0),
     avgAPR: pools.length > 0 ? pools.reduce((acc, pool) => acc + (pool.apr || 0), 0) / pools.length : 0,
-    activePositions: 12, // TODO: Get from database
+    activePositions: pools.length, // Use actual pool count
   }
 
   const handleCreatePosition = (pool: Pool) => {
@@ -99,36 +97,61 @@ export default function HomePage() {
   useEffect(() => {
     let filtered = [...pools]
 
+    // Маппинг сетей из фильтра в формат базы данных
+    const networkMap: Record<string, string> = {
+      'ARBITRUM': 'arbitrum',
+      'ERC20': 'mainnet',
+      'BEP20': 'bep20',
+      'POLYGON': 'polygon',
+      'OPTIMISM': 'optimism',
+      'BASE': 'base',
+      'UNI': 'mainnet',
+      'TRX': 'tron',
+      'SOL': 'solana',
+    }
+
     // Применяем все фильтры
     if (filters.network && filters.network !== 'all') {
-      filtered = filtered.filter((pool) => pool.network === filters.network)
+      const networkValue = networkMap[filters.network] || filters.network.toLowerCase()
+      filtered = filtered.filter((pool) => {
+        const poolNetwork = pool.network?.toLowerCase()
+        return poolNetwork === networkValue || poolNetwork === filters.network.toLowerCase()
+      })
     }
 
     // Фильтр по TVL
     if (filters.tvlMin) {
       const min = parseFloat(filters.tvlMin)
       if (!isNaN(min)) {
-        filtered = filtered.filter((pool) => (pool.tvl_usd || 0) >= min)
+        filtered = filtered.filter((pool) => (pool.tvlUSD || 0) >= min)
       }
     }
     if (filters.tvlMax) {
       const max = parseFloat(filters.tvlMax)
       if (!isNaN(max)) {
-        filtered = filtered.filter((pool) => (pool.tvl_usd || 0) <= max)
+        filtered = filtered.filter((pool) => (pool.tvlUSD || 0) <= max)
       }
     }
 
-    // Фильтр по Fees
+    // Фильтр по Fees (24h fees)
     if (filters.feeMin) {
       const min = parseFloat(filters.feeMin)
       if (!isNaN(min)) {
-        filtered = filtered.filter((pool) => (pool.fees_24h_usd || 0) >= min)
+        filtered = filtered.filter((pool) => {
+          const feePct = (pool.fee || 0) / 10000
+          const fees24h = (pool.volumeUSD || 0) * feePct
+          return fees24h >= min
+        })
       }
     }
     if (filters.feeMax) {
       const max = parseFloat(filters.feeMax)
       if (!isNaN(max)) {
-        filtered = filtered.filter((pool) => (pool.fees_24h_usd || 0) <= max)
+        filtered = filtered.filter((pool) => {
+          const feePct = (pool.fee || 0) / 10000
+          const fees24h = (pool.volumeUSD || 0) * feePct
+          return fees24h <= max
+        })
       }
     }
 
@@ -151,10 +174,10 @@ export default function HomePage() {
       let comparison = 0
       switch (sortBy) {
         case 'tvl':
-          comparison = (b.tvl_usd || 0) - (a.tvl_usd || 0)
+          comparison = (b.tvlUSD || 0) - (a.tvlUSD || 0)
           break
         case 'volume':
-          comparison = (b.volume_24h_usd || 0) - (a.volume_24h_usd || 0)
+          comparison = (b.volumeUSD || 0) - (a.volumeUSD || 0)
           break
         case 'apr':
           comparison = (b.apr || 0) - (a.apr || 0)

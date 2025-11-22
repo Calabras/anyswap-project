@@ -51,40 +51,36 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get position
-    const positionResult = await query(
-      `SELECT up.id, up.user_id, up.pool_id, up.position_id, up.amount_usd,
-              up.collected_fees_usd, up.status,
-              lp.pool_address, lp.token0_address, lp.token1_address,
-              lp.token0_symbol, lp.token1_symbol
-       FROM user_positions up
-       JOIN liquidity_pools lp ON up.pool_id = lp.id
-       WHERE up.id = $1 AND up.user_id = $2 AND up.status = 'active'`,
-      [positionId, userId]
-    )
+    // Get position via Prisma
+    const position = await prisma.position.findFirst({
+      where: {
+        id: positionId,
+        userId,
+        status: 'ACTIVE',
+      },
+      include: { pool: true },
+    })
 
-    if (positionResult.rows.length === 0) {
+    if (!position || !position.pool) {
       return NextResponse.json(
         { message: 'Position not found or not active' },
         { status: 404 }
       )
     }
 
-    const position = positionResult.rows[0]
-
     // Collect fees if requested
     let totalFeesUSD = 0
     if (collectFees) {
       const feesData = await collectFeesData({
-        positionId: position.position_id,
-        poolAddress: position.pool_address,
-        token0Address: position.token0_address,
-        token1Address: position.token1_address,
+        positionId: position.tokenId || '',
+        poolAddress: position.pool.address,
+        token0Address: position.pool.token0Address,
+        token1Address: position.pool.token1Address,
       })
 
       // Convert fees to USD
-      const token0Price = await fetchCryptoPrice(position.token0_symbol)
-      const token1Price = await fetchCryptoPrice(position.token1_symbol)
+      const token0Price = await fetchCryptoPrice(position.pool.token0Symbol)
+      const token1Price = await fetchCryptoPrice(position.pool.token1Symbol)
 
       const token0FeesUSD = parseFloat(feesData.token0Fees) * (token0Price || 0)
       const token1FeesUSD = parseFloat(feesData.token1Fees) * (token1Price || 0)
@@ -93,71 +89,69 @@ export async function POST(req: NextRequest) {
 
     // Close position using Uniswap SDK
     const closeData = await closePositionData({
-      positionId: position.position_id,
-      poolAddress: position.pool_address,
-      token0Address: position.token0_address,
-      token1Address: position.token1_address,
+      positionId: position.tokenId || '',
+      poolAddress: position.pool.address,
+      token0Address: position.pool.token0Address,
+      token1Address: position.pool.token1Address,
       collectFees,
     })
 
     // Convert returned tokens to USD
-    const token0Price = await fetchCryptoPrice(position.token0_symbol)
-    const token1Price = await fetchCryptoPrice(position.token1_symbol)
+    const token0Price = await fetchCryptoPrice(position.pool.token0Symbol)
+    const token1Price = await fetchCryptoPrice(position.pool.token1Symbol)
 
     const token0AmountUSD = parseFloat(closeData.token0Amount) * (token0Price || 0)
     const token1AmountUSD = parseFloat(closeData.token1Amount) * (token1Price || 0)
     const totalReturnUSD = token0AmountUSD + token1AmountUSD + totalFeesUSD
 
-    // Update user balance
-    const userResult = await query(
-      'SELECT balance_usd FROM users WHERE id = $1',
-      [userId]
-    )
+    // Update user balance via Prisma
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { balanceUsd: true },
+    })
 
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
         { status: 404 }
       )
     }
 
-    const currentBalance = parseFloat(userResult.rows[0].balance_usd)
+    const currentBalance = parseFloat(user.balanceUsd.toString())
     const newBalance = currentBalance + totalReturnUSD
 
-    await query(
-      `UPDATE users 
-       SET balance_usd = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [newBalance, userId]
-    )
+    await prisma.user.update({
+      where: { id: userId },
+      data: { balanceUsd: newBalance },
+    })
 
     // Close position
-    await query(
-      `UPDATE user_positions 
-       SET status = 'closed', 
-           closed_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1`,
-      [positionId]
-    )
+    await prisma.position.update({
+      where: { id: positionId },
+      data: {
+        status: 'CLOSED',
+        closedAt: new Date(),
+      },
+    })
 
     // Log transaction
-    await query(
-      `INSERT INTO transactions (user_id, type, amount_usd, status, metadata)
-       VALUES ($1, 'position_close', $2, 'completed', $3)`,
-      [
+    await prisma.transaction.create({
+      data: {
         userId,
-        totalReturnUSD,
-        JSON.stringify({
+        type: 'REMOVE_LIQUIDITY',
+        status: 'CONFIRMED',
+        network: position.pool.network,
+        amount: totalReturnUSD.toString(),
+        amountUSD: totalReturnUSD,
+        metadata: {
           positionId: position.id,
-          originalAmount: position.amount_usd,
           returnedAmount: totalReturnUSD,
           feesCollected: totalFeesUSD,
           token0Amount: closeData.token0Amount,
           token1Amount: closeData.token1Amount,
-        }),
-      ]
-    )
+        } as any,
+      },
+    })
 
     return NextResponse.json(
       {

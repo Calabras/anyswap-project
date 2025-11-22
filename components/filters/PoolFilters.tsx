@@ -163,7 +163,7 @@ export default function PoolFilters({ onFiltersChange }: PoolFiltersProps) {
             {/* TVL Filter */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                {t('filters.tvl', 'TVL Volume ($)')}
+                24h TVL Volume ($)
               </label>
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -171,12 +171,14 @@ export default function PoolFilters({ onFiltersChange }: PoolFiltersProps) {
                   value={filters.tvlMin}
                   onChange={(e) => handleFilterChange('tvlMin', e.target.value)}
                   placeholder={t('filters.from', 'From')}
+                  className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
                 <Input
                   type="number"
                   value={filters.tvlMax}
                   onChange={(e) => handleFilterChange('tvlMax', e.target.value)}
                   placeholder={t('filters.to', 'To')}
+                  className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
               </div>
             </div>
@@ -184,7 +186,7 @@ export default function PoolFilters({ onFiltersChange }: PoolFiltersProps) {
             {/* Fee Filter */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                {t('filters.fee', 'Fees ($)')}
+                24h Fees ($)
               </label>
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -192,12 +194,14 @@ export default function PoolFilters({ onFiltersChange }: PoolFiltersProps) {
                   value={filters.feeMin}
                   onChange={(e) => handleFilterChange('feeMin', e.target.value)}
                   placeholder={t('filters.from', 'From')}
+                  className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
                 <Input
                   type="number"
                   value={filters.feeMax}
                   onChange={(e) => handleFilterChange('feeMax', e.target.value)}
                   placeholder={t('filters.to', 'To')}
+                  className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
               </div>
             </div>
@@ -205,7 +209,7 @@ export default function PoolFilters({ onFiltersChange }: PoolFiltersProps) {
             {/* APR Filter */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                {t('filters.apr', 'APR (%)')}
+                APR (%)
               </label>
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -213,12 +217,14 @@ export default function PoolFilters({ onFiltersChange }: PoolFiltersProps) {
                   value={filters.aprMin}
                   onChange={(e) => handleFilterChange('aprMin', e.target.value)}
                   placeholder={t('filters.from', 'From')}
+                  className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
                 <Input
                   type="number"
                   value={filters.aprMax}
                   onChange={(e) => handleFilterChange('aprMax', e.target.value)}
                   placeholder={t('filters.to', 'To')}
+                  className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
               </div>
             </div>

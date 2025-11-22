@@ -18,21 +18,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get pool from database
-    const poolResult = await query(
-      'SELECT pool_address, network FROM liquidity_pools WHERE id = $1',
-      [poolId]
-    )
+    // Get pool from database via Prisma
+    const pool = await prisma.pool.findUnique({
+      where: { id: poolId },
+    })
 
-    if (poolResult.rows.length === 0) {
+    if (!pool) {
       return NextResponse.json(
         { message: 'Pool not found' },
         { status: 404 }
       )
     }
 
-    const pool = poolResult.rows[0]
-    
     // Map network back to The Graph format
     const networkMap: Record<string, string> = {
       'ERC20': 'ethereum',
@@ -45,7 +42,7 @@ export async function POST(req: NextRequest) {
     const graphNetwork = networkMap[pool.network] || 'ethereum'
 
     // Fetch latest data from Uniswap
-    const poolData = await fetchUniswapPoolData(pool.pool_address, graphNetwork)
+    const poolData = await fetchUniswapPoolData(pool.address, graphNetwork)
 
     if (!poolData) {
       return NextResponse.json(
@@ -54,34 +51,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Update pool in database
-    await query(
-      `UPDATE liquidity_pools 
-       SET 
-         token0_symbol = $1,
-         token1_symbol = $2,
-         token0_address = $3,
-         token1_address = $4,
-         fee_tier = $5,
-         tvl_usd = $6,
-         volume_24h_usd = $7,
-         fees_24h_usd = $8,
-         apr = $9,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10`,
-      [
-        poolData.token0.symbol,
-        poolData.token1.symbol,
-        poolData.token0.address,
-        poolData.token1.address,
-        poolData.feeTier,
-        poolData.tvl,
-        poolData.volume24h,
-        poolData.fees24h,
-        poolData.apr,
-        poolId,
-      ]
-    )
+    // Update pool in database via Prisma
+    await prisma.pool.update({
+      where: { id: poolId },
+      data: {
+        token0Symbol: poolData.token0.symbol,
+        token1Symbol: poolData.token1.symbol,
+        token0Address: poolData.token0.address,
+        token1Address: poolData.token1.address,
+        fee: poolData.feeTier,
+        tvlUSD: poolData.tvl,
+        volumeUSD: poolData.volume24h,
+        updatedAt: new Date(),
+      },
+    })
 
     return NextResponse.json(
       { 
@@ -104,15 +87,16 @@ export async function POST(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
-    // Get all active pools
-    const poolsResult = await query(
-      'SELECT id, pool_address, network FROM liquidity_pools WHERE is_active = TRUE'
-    )
+    // Get all active pools via Prisma
+    const pools = await prisma.pool.findMany({
+      where: { isActive: true },
+      select: { id: true, address: true, network: true },
+    })
 
     const updatedPools: any[] = []
     const failedPools: any[] = []
 
-    for (const pool of poolsResult.rows) {
+    for (const pool of pools) {
       try {
         // Map network
         const networkMap: Record<string, string> = {
@@ -126,37 +110,23 @@ export async function PUT(req: NextRequest) {
         const graphNetwork = networkMap[pool.network] || 'ethereum'
 
         // Fetch latest data
-        const poolData = await fetchUniswapPoolData(pool.pool_address, graphNetwork)
+        const poolData = await fetchUniswapPoolData(pool.address, graphNetwork)
 
         if (poolData) {
-          // Update in database
-          await query(
-            `UPDATE liquidity_pools 
-             SET 
-               token0_symbol = $1,
-               token1_symbol = $2,
-               token0_address = $3,
-               token1_address = $4,
-               fee_tier = $5,
-               tvl_usd = $6,
-               volume_24h_usd = $7,
-               fees_24h_usd = $8,
-               apr = $9,
-               updated_at = CURRENT_TIMESTAMP
-             WHERE id = $10`,
-            [
-              poolData.token0.symbol,
-              poolData.token1.symbol,
-              poolData.token0.address,
-              poolData.token1.address,
-              poolData.feeTier,
-              poolData.tvl,
-              poolData.volume24h,
-              poolData.fees24h,
-              poolData.apr,
-              pool.id,
-            ]
-          )
+          // Update in database via Prisma
+          await prisma.pool.update({
+            where: { id: pool.id },
+            data: {
+              token0Symbol: poolData.token0.symbol,
+              token1Symbol: poolData.token1.symbol,
+              token0Address: poolData.token0.address,
+              token1Address: poolData.token1.address,
+              fee: poolData.feeTier,
+              tvlUSD: poolData.tvl,
+              volumeUSD: poolData.volume24h,
+              updatedAt: new Date(),
+            },
+          })
 
           updatedPools.push({ id: pool.id, symbol: `${poolData.token0.symbol}/${poolData.token1.symbol}` })
         } else {

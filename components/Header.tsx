@@ -42,36 +42,36 @@ const Header: React.FC = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <div className="text-2xl font-bold text-primary glow-text">
-                AnySwap
-              </div>
-            </Link>
+            {/* Logo and Navigation */}
+            <div className="flex items-center gap-6">
+              <Link href="/" className="flex items-center gap-2">
+                <div className="text-2xl font-bold text-primary glow-text">
+                  AnySwap
+                </div>
+              </Link>
 
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center gap-1">
-              <Link href="/discover">
-                <Button variant="ghost" className="text-xs font-medium">
-                  {t('nav.discover')}
+              {/* Navigation */}
+              <nav className="hidden md:flex items-center gap-2">
+                <Link href="/">
+                  <Button variant="ghost" className="text-base font-semibold">
+                    All Pools
+                  </Button>
+                </Link>
+                <Button 
+                  variant="ghost" 
+                  className="text-base font-semibold"
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      router.push('/positions')
+                    } else {
+                      setShowAuthModal(true)
+                    }
+                  }}
+                >
+                  {t('nav.positions', 'My Positions')}
                 </Button>
-              </Link>
-              <Link href="/positions">
-                <Button variant="ghost" className="text-xs font-medium">
-                  {t('nav.positions')}
-                </Button>
-              </Link>
-              <Link href="/analytics">
-                <Button variant="ghost" className="text-xs font-medium">
-                  {t('nav.analytics')}
-                </Button>
-              </Link>
-              <Link href="/docs">
-                <Button variant="ghost" className="text-xs font-medium">
-                  {t('nav.docs')}
-                </Button>
-              </Link>
-            </nav>
+              </nav>
+            </div>
 
             {/* Right Section */}
             <div className="flex items-center gap-3">
@@ -123,9 +123,8 @@ const Header: React.FC = () => {
                   {/* Deposit Button */}
                   <Button
                     onClick={() => router.push('/deposit')}
-                    variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 bg-gradient-to-r from-yellow-500 to-amber-400 text-black hover:from-yellow-400 hover:to-amber-300"
                   >
                     <ArrowDown className="h-4 w-4" />
                     <span className="hidden md:inline">{t('header.deposit', 'Deposit')}</span>

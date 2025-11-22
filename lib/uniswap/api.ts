@@ -268,13 +268,14 @@ export async function fetchUniswapPoolData(
           sqrtPrice
           tick
           liquidity
-          poolDayData(
-            first: 1
+          poolDayDatas(
+            first: 2
             orderBy: date
             orderDirection: desc
           ) {
             volumeUSD
             feesUSD
+            tvlUSD
             date
           }
         }
@@ -297,18 +298,21 @@ export async function fetchUniswapPoolData(
     let volume24h = 0
     let fees24h = 0
     
-    if (pool.poolDayData && pool.poolDayData.length > 0) {
+    if (pool.poolDayDatas && pool.poolDayDatas.length > 0) {
       // Use most recent day data for 24h metrics
-      const dayData = pool.poolDayData[0]
+      const dayData = pool.poolDayDatas[0]
       volume24h = parseFloat(dayData.volumeUSD || '0')
       fees24h = parseFloat(dayData.feesUSD || '0')
+      if (!tvl && dayData.tvlUSD) {
+        tvl = parseFloat(dayData.tvlUSD || '0')
+      }
     } else {
       // Fallback to total values if day data not available
       volume24h = parseFloat(pool.volumeUSD || '0')
       fees24h = parseFloat(pool.feesUSD || '0')
     }
     
-    const tvl = parseFloat(pool.totalValueLockedUSD || '0')
+    let tvl = parseFloat(pool.totalValueLockedUSD || '0')
 
     // Calculate APR: (fees24h * 365) / tvl * 100
     const apr = tvl > 0 ? (fees24h * 365 / tvl) * 100 : 0

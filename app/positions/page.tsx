@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 
 interface Position {
   id: string
@@ -44,6 +45,7 @@ export default function PositionsPage() {
   const [loading, setLoading] = useState(true)
   const [collectingFees, setCollectingFees] = useState<string | null>(null)
   const [closingPosition, setClosingPosition] = useState<string | null>(null)
+  const [confirmClose, setConfirmClose] = useState<{ open: boolean; id: string | null }>({ open: false, id: null })
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -116,10 +118,6 @@ export default function PositionsPage() {
   }
 
   const handleClosePosition = async (positionId: string) => {
-    if (!confirm(t('position.closeConfirm', 'Are you sure you want to close this position?'))) {
-      return
-    }
-
     setClosingPosition(positionId)
     try {
       const token = localStorage.getItem('authToken')
@@ -288,7 +286,7 @@ export default function PositionsPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleClosePosition(position.id)}
+                      onClick={() => setConfirmClose({ open: true, id: position.id })}
                       disabled={closingPosition === position.id}
                       className="flex-1"
                     >
@@ -304,6 +302,21 @@ export default function PositionsPage() {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={confirmClose.open}
+        title={t('position.closeConfirm', 'Close position?')}
+        description={t('position.closeConfirmDesc', 'You will withdraw liquidity and collect fees.')}
+        confirmText={t('position.close', 'Close')}
+        cancelText={t('position.cancel', 'Cancel')}
+        variant="danger"
+        onCancel={() => setConfirmClose({ open: false, id: null })}
+        onConfirm={() => {
+          if (confirmClose.id) {
+            handleClosePosition(confirmClose.id)
+          }
+          setConfirmClose({ open: false, id: null })
+        }}
+      />
     </div>
   )
 }

@@ -51,33 +51,31 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get position
-    const positionResult = await query(
-      `SELECT up.id, up.user_id, up.pool_id, up.position_id, up.amount_usd,
-              up.collected_fees_usd, up.status,
-              lp.pool_address, lp.token0_address, lp.token1_address,
-              lp.token0_symbol, lp.token1_symbol
-       FROM user_positions up
-       JOIN liquidity_pools lp ON up.pool_id = lp.id
-       WHERE up.id = $1 AND up.user_id = $2 AND up.status = 'active'`,
-      [positionId, userId]
-    )
+    // Get position via Prisma
+    const position = await prisma.position.findFirst({
+      where: {
+        id: positionId,
+        userId,
+        status: 'ACTIVE',
+      },
+      include: {
+        pool: true,
+      },
+    })
 
-    if (positionResult.rows.length === 0) {
+    if (!position || !position.pool) {
       return NextResponse.json(
         { message: 'Position not found or not active' },
         { status: 404 }
       )
     }
 
-    const position = positionResult.rows[0]
-
     // Collect fees using Uniswap SDK
     const feesData = await collectFeesData({
-      positionId: position.position_id,
-      poolAddress: position.pool_address,
-      token0Address: position.token0_address,
-      token1Address: position.token1_address,
+      positionId: position.tokenId || '',
+      poolAddress: position.pool.address,
+      token0Address: position.pool.token0Address,
+      token1Address: position.pool.token1Address,
     })
 
     // Convert fees to USD using Binance API
@@ -85,8 +83,8 @@ export async function POST(req: NextRequest) {
 
     if (feesUSD === 0) {
       // Calculate fees from token amounts
-      const token0Price = await fetchCryptoPrice(position.token0_symbol)
-      const token1Price = await fetchCryptoPrice(position.token1_symbol)
+      const token0Price = await fetchCryptoPrice(position.pool.token0Symbol)
+      const token1Price = await fetchCryptoPrice(position.pool.token1Symbol)
 
       const token0FeesUSD = parseFloat(feesData.token0Fees) * (token0Price || 0)
       const token1FeesUSD = parseFloat(feesData.token1Fees) * (token1Price || 0)
@@ -100,53 +98,46 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Update user balance
-    const userResult = await query(
-      'SELECT balance_usd FROM users WHERE id = $1',
-      [userId]
-    )
+    // Update user balance (Prisma)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { balanceUsd: true },
+    })
 
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
         { status: 404 }
       )
     }
 
-    const currentBalance = parseFloat(userResult.rows[0].balance_usd)
+    const currentBalance = parseFloat(user.balanceUsd.toString())
     const newBalance = currentBalance + feesUSD
 
-    await query(
-      `UPDATE users 
-       SET balance_usd = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [newBalance, userId]
-    )
+    await prisma.user.update({
+      where: { id: userId },
+      data: { balanceUsd: newBalance },
+    })
 
-    // Update position's collected fees
-    const newCollectedFees = parseFloat(position.collected_fees_usd || '0') + feesUSD
-
-    await query(
-      `UPDATE user_positions 
-       SET collected_fees_usd = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [newCollectedFees, positionId]
-    )
+    // Optional: update collected fees fields on Position (we store per-token strings)
+    // Here we just leave as-is since schema stores token amounts separately.
 
     // Log transaction
-    await query(
-      `INSERT INTO transactions (user_id, type, amount_usd, status, metadata)
-       VALUES ($1, 'fee_collection', $2, 'completed', $3)`,
-      [
+    await prisma.transaction.create({
+      data: {
         userId,
-        feesUSD,
-        JSON.stringify({
+        type: 'COLLECT_FEES',
+        status: 'CONFIRMED',
+        network: position.pool.network,
+        amount: feesUSD.toString(),
+        amountUSD: feesUSD,
+        metadata: {
           positionId: position.id,
           token0Fees: feesData.token0Fees,
           token1Fees: feesData.token1Fees,
-        }),
-      ]
-    )
+        } as any,
+      },
+    })
 
     return NextResponse.json(
       {

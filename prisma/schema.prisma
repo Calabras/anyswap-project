@@ -176,6 +176,15 @@ model PoolHourData {
   @@index([timestamp])
 }
 
+model SiteSettings {
+  id         String   @id @default("default")
+  telegram   String?
+  twitter    String?
+  discord    String?
+  youtube    String?
+  instagram  String?
+  updatedAt  DateTime @updatedAt
+}
 enum PositionStatus {
   ACTIVE
   CLOSED

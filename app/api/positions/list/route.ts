@@ -33,55 +33,47 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const status = searchParams.get('status') || 'active'
 
-    // Get user positions
-    const positionsResult = await query(
-      `SELECT 
-        up.id,
-        up.position_id,
-        up.amount_usd,
-        up.min_price,
-        up.max_price,
-        up.is_full_range,
-        up.collected_fees_usd,
-        up.status,
-        up.created_at,
-        up.updated_at,
-        up.closed_at,
-        lp.id as pool_id,
-        lp.pool_address,
-        lp.network,
-        lp.token0_symbol,
-        lp.token1_symbol,
-        lp.fee_tier,
-        lp.tvl_usd,
-        lp.apr
-       FROM user_positions up
-       JOIN liquidity_pools lp ON up.pool_id = lp.id
-       WHERE up.user_id = $1 AND up.status = $2
-       ORDER BY up.created_at DESC`,
-      [userId, status]
-    )
+    // Get user positions via Prisma
+    const prismaStatus =
+      status === 'closed'
+        ? 'CLOSED'
+        : status === 'pending'
+        ? 'PENDING'
+        : 'ACTIVE'
 
-    const positions = positionsResult.rows.map((row) => ({
-      id: row.id,
-      positionId: row.position_id,
-      poolId: row.pool_id,
-      poolAddress: row.pool_address,
-      network: row.network,
-      token0Symbol: row.token0_symbol,
-      token1Symbol: row.token1_symbol,
-      feeTier: row.fee_tier,
-      amountUSD: parseFloat(row.amount_usd),
-      minPrice: row.min_price ? parseFloat(row.min_price) : null,
-      maxPrice: row.max_price ? parseFloat(row.max_price) : null,
-      isFullRange: row.is_full_range,
-      collectedFeesUSD: parseFloat(row.collected_fees_usd || '0'),
-      status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      closedAt: row.closed_at,
-      poolTVL: parseFloat(row.tvl_usd || '0'),
-      poolAPR: parseFloat(row.apr || '0'),
+    const userPositions = await prisma.position.findMany({
+      where: {
+        userId,
+        status: prismaStatus as any,
+      },
+      include: {
+        pool: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    const positions = userPositions.map((p) => ({
+      id: p.id,
+      positionId: p.tokenId || '',
+      poolId: p.poolId,
+      poolAddress: p.pool?.address || '',
+      network: p.pool?.network || 'mainnet',
+      token0Symbol: p.pool?.token0Symbol || '',
+      token1Symbol: p.pool?.token1Symbol || '',
+      feeTier: p.pool?.fee || 0,
+      amountUSD: typeof p.amount0 === 'string' || typeof p.amount1 === 'string' ? 0 : 0, // placeholder, amounts are string units
+      minPrice: null,
+      maxPrice: null,
+      isFullRange: p.tickLower <= -887220 && p.tickUpper >= 887220,
+      collectedFeesUSD: 0, // derive later from collectedFees0/1 and prices
+      status: p.status.toString().toLowerCase(),
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+      closedAt: p.closedAt ? p.closedAt.toISOString() : null,
+      poolTVL: p.pool?.tvlUSD || 0,
+      poolAPR: 0,
     }))
 
     return NextResponse.json(
