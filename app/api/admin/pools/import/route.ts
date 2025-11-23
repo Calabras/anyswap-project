@@ -150,174 +150,38 @@ async function importSinglePool(
     }
 
     console.log(`✅ Pool data received: ${poolData.token0.symbol}/${poolData.token1.symbol}`);
-    console.log(`📊 Pool raw data from GraphQL:`, {
-      totalValueLockedUSD: poolData.totalValueLockedUSD,
-      volumeUSD: poolData.volumeUSD,
-      feesUSD: poolData.feesUSD,
-      liquidity: poolData.liquidity,
-      poolDayDataFromQuery: poolData.poolDayData ? {
-        count: poolData.poolDayData.length,
-        latest: poolData.poolDayData[0] ? {
-          date: new Date(poolData.poolDayData[0].date * 1000).toISOString(),
-          volumeUSD: poolData.poolDayData[0].volumeUSD,
-          feesUSD: poolData.poolDayData[0].feesUSD,
-          tvlUSD: poolData.poolDayData[0].tvlUSD
-        } : null
-      } : null
-    });
-    
-    // Проверяем на подозрительные значения (слишком большие)
-    const poolTvl = parseFloat(poolData.totalValueLockedUSD || '0');
-    const poolVolume = parseFloat(poolData.volumeUSD || '0');
-    if (poolTvl > 1e12 || poolVolume > 1e12) {
-      console.warn(`⚠️ SUSPICIOUS VALUES detected for pool ${poolAddress}:`, {
-        tvl: poolTvl,
-        volume: poolVolume,
-        message: 'These values seem too large. May be cumulative instead of 24h.'
-      });
-    }
 
-    // Получаем последние дневные данные (24h)
-    // ВАЖНО: Всегда используем poolDayData для 24h метрик (последний ПОЛНЫЙ день)
-    // poolHourData может содержать cumulative значения, что приводит к ошибкам
-    let lastDayVolumeUSD = 0;
-    let lastDayFeesUSD = 0;
-    
-    // Используем poolDayData из основного запроса или делаем отдельный запрос
-    if (poolData.poolDayData && poolData.poolDayData.length > 0) {
-      const latestDay = poolData.poolDayData[0];
-      const dayDate = new Date(latestDay.date * 1000);
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const isToday = dayDate >= todayStart;
-      
-      console.log(`📅 poolDayData from main query:`, {
-        date: dayDate.toISOString(),
-        isToday: isToday,
-        volumeUSD: latestDay.volumeUSD,
-        feesUSD: latestDay.feesUSD,
-        tvlUSD: latestDay.tvlUSD
-      });
-      
-      // ВАЖНО: Если данные за сегодня, используем вчерашний день (последний ПОЛНЫЙ день)
-      if (isToday && poolData.poolDayData.length > 1) {
-        const previousDay = poolData.poolDayData[1];
-        console.log(`📅 Using previous FULL day (yesterday) for accurate 24h metrics:`, {
-          date: new Date(previousDay.date * 1000).toISOString(),
-          volumeUSD: previousDay.volumeUSD,
-          feesUSD: previousDay.feesUSD,
-          tvlUSD: previousDay.tvlUSD
-        });
-        
-        lastDayVolumeUSD = parseFloat(previousDay.volumeUSD || '0');
-        lastDayFeesUSD = parseFloat(previousDay.feesUSD || '0');
-      } else {
-        // Данные за полный день (вчерашний или старше) - используем их
-        lastDayVolumeUSD = parseFloat(latestDay.volumeUSD || '0');
-        lastDayFeesUSD = parseFloat(latestDay.feesUSD || '0');
-      }
-    } else {
-      // Если poolDayData нет в основном запросе, делаем отдельный запрос
-      try {
-        const dayData = await graphClient.getPoolDayData(poolAddress, 2);
-        console.log(`📅 Received ${dayData?.length || 0} days of dayData from separate query`);
-        
-        if (dayData && dayData.length > 0) {
-          const latestDay = dayData[0];
-          const dayDate = new Date(latestDay.date * 1000);
-          const now = new Date();
-          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const isToday = dayDate >= todayStart;
-          
-          console.log(`📅 Latest day data:`, {
-            date: dayDate.toISOString(),
-            isToday: isToday,
-            volumeUSD: latestDay.volumeUSD,
-            feesUSD: latestDay.feesUSD,
-            tvlUSD: latestDay.tvlUSD
-          });
-          
-          // Если данные за сегодня, используем вчерашний день
-          if (isToday && dayData.length > 1) {
-            const previousDay = dayData[1];
-            console.log(`📅 Using previous FULL day for 24h metrics:`, {
-              date: new Date(previousDay.date * 1000).toISOString(),
-              volumeUSD: previousDay.volumeUSD,
-              feesUSD: previousDay.feesUSD
-            });
-            
-            lastDayVolumeUSD = parseFloat(previousDay.volumeUSD || '0');
-            lastDayFeesUSD = parseFloat(previousDay.feesUSD || '0');
-          } else {
-            lastDayVolumeUSD = parseFloat(latestDay.volumeUSD || '0');
-            lastDayFeesUSD = parseFloat(latestDay.feesUSD || '0');
-          }
-        } else {
-          console.warn(`⚠️ No dayData returned from The Graph for pool ${poolAddress}`);
-        }
-      } catch (e) {
-        console.error('❌ Failed to fetch dayData:', e);
-        console.error('   Error details:', e instanceof Error ? e.stack : e);
-      }
-    }
-    
-    // ВАЖНО: Для TVL используем pool.totalValueLockedUSD (самое актуальное значение)
-    // poolDayData.tvlUSD - это снимок на конец дня, может быть устаревшим
-    const finalTvl = parseFloat(poolData.totalValueLockedUSD || '0');
-    
-    // Сравниваем с данными из pool (для диагностики)
-    const poolTvlFromPool = parseFloat(poolData.totalValueLockedUSD || '0');
-    const poolVolumeFromPool = parseFloat(poolData.volumeUSD || '0');
-    
-    console.log(`💰 Final metrics for import:`, {
-      volume24h: lastDayVolumeUSD,
-      fees24h: lastDayFeesUSD,
-      tvl: finalTvl,
-      apr: finalTvl > 0 ? (lastDayFeesUSD / finalTvl) * 365 * 100 : 0,
-      dataSource: 'poolDayData (last full day)',
-      note: 'TVL from pool.totalValueLockedUSD (current), Volume/Fees from poolDayData (last full day)'
+    // НОВАЯ ЛОГИКА: Используем рассчитанные данные за последние 24 часа из poolHourData
+    // Это дает РЕАЛЬНЫЕ данные за последние 24 часа, а не календарный день
+    const calculated = poolData.calculated24h || {
+      volumeUSD: 0,
+      feesUSD: 0,
+      tvlUSD: parseFloat(poolData.totalValueLockedUSD || '0')
+    };
+
+    const volume24h = calculated.volumeUSD;
+    const fees24h = calculated.feesUSD;
+    const tvl = calculated.tvlUSD;
+
+    console.log(`📊 REAL 24H METRICS (from poolHourData):`, {
+      volume24h,
+      fees24h,
+      tvl,
+      apr: tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0,
+      dataSource: 'poolHourData (last 24 hours)',
+      note: 'EXACTLY like Uniswap UI - uses hourly data!'
     });
-    
-    console.log(`🔍 Comparison with pool-level data:`, {
-      fromDayData: {
-        volume: lastDayVolumeUSD,
-        fees: lastDayFeesUSD
-      },
-      fromPool: {
-        volume: poolVolumeFromPool,
-        tvl: poolTvlFromPool,
-        note: 'Pool volume is CUMULATIVE (all time), not 24h!'
-      },
-      final: {
-        volume24h: lastDayVolumeUSD,
-        fees24h: lastDayFeesUSD,
-        tvl: finalTvl,
-        note: 'Using poolDayData (last full day) for 24h metrics, pool.totalValueLockedUSD for current TVL'
-      }
-    });
-    
-    // Проверяем, не слишком ли старые данные
-    if (poolData.poolDayData && poolData.poolDayData.length > 0) {
-      const latestDayDate = new Date(poolData.poolDayData[0].date * 1000);
-      const now = new Date();
-      const daysDiff = (now.getTime() - latestDayDate.getTime()) / (1000 * 60 * 60 * 24);
-      
-      if (daysDiff > 1) {
-        console.warn(`⚠️ WARNING: Latest dayData is ${daysDiff.toFixed(1)} days old! Data may be outdated.`);
-        console.warn(`   Latest day: ${latestDayDate.toISOString()}, Now: ${now.toISOString()}`);
-      }
-    }
 
     // Сохраняем или обновляем пул в базе данных
     console.log(`💾 Saving pool to database:`, {
       address: poolAddress.toLowerCase(),
       network: network,
       pair: `${poolData.token0.symbol}/${poolData.token1.symbol}`,
-      volume24h: lastDayVolumeUSD,
-      fees24h: lastDayFeesUSD,
-      tvl: finalTvl
+      volume24h: volume24h,
+      fees24h: fees24h,
+      tvl: tvl
     });
-    
+
     const pool = await prisma.pool.upsert({
       where: {
         address_network: {
@@ -329,22 +193,22 @@ async function importSinglePool(
         liquidity: poolData.liquidity,
         sqrtPriceX96: poolData.sqrtPrice,
         tick: parseInt(poolData.tick || '0'),
-        // Суточный объем из poolDayData (последний полный день)
-        volumeUSD: lastDayVolumeUSD,
-        // TVL используем из pool.totalValueLockedUSD (актуальное значение)
-        tvlUSD: finalTvl,
+        // РЕАЛЬНЫЙ объем за последние 24 часа из poolHourData
+        volumeUSD: volume24h,
+        // TVL текущий из pool.totalValueLockedUSD
+        tvlUSD: tvl,
         txCount: parseInt(poolData.txCount || '0'),
-        isActive: true, // Явно устанавливаем isActive при обновлении
+        isActive: true,
         updatedAt: new Date()
       },
       create: {
         address: poolAddress.toLowerCase(),
         network: network,
-        token0Address: poolData.token0.id.toLowerCase(), // Убеждаемся что lowercase
+        token0Address: poolData.token0.id.toLowerCase(),
         token0Symbol: poolData.token0.symbol,
         token0Name: poolData.token0.name,
         token0Decimals: parseInt(poolData.token0.decimals),
-        token1Address: poolData.token1.id.toLowerCase(), // Убеждаемся что lowercase
+        token1Address: poolData.token1.id.toLowerCase(),
         token1Symbol: poolData.token1.symbol,
         token1Name: poolData.token1.name,
         token1Decimals: parseInt(poolData.token1.decimals),
@@ -352,11 +216,10 @@ async function importSinglePool(
         liquidity: poolData.liquidity,
         sqrtPriceX96: poolData.sqrtPrice,
         tick: parseInt(poolData.tick || '0'),
-        volumeUSD: lastDayVolumeUSD,
-        // TVL используем из pool (актуальное значение), не из dayData
-        tvlUSD: finalTvl,
+        volumeUSD: volume24h,
+        tvlUSD: tvl,
         txCount: parseInt(poolData.txCount || '0'),
-        isActive: true // Явно устанавливаем isActive при создании
+        isActive: true
       }
     });
 

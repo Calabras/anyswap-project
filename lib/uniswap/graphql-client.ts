@@ -35,15 +35,15 @@ export class UniswapGraphClient {
   constructor(network: string = 'mainnet', apiKey?: string) {
     this.network = network;
     const baseEndpoint = GRAPH_ENDPOINTS[network as keyof typeof GRAPH_ENDPOINTS] || GRAPH_ENDPOINTS.mainnet;
-    
+
     // Build endpoint with API key
     const apiKeyToUse = apiKey || process.env.NEXT_PUBLIC_GRAPH_API_KEY;
-    
+
     // Extract subgraph ID from base endpoint
     // Format: https://gateway-arbitrum.network.thegraph.com/api/subgraphs/id/{SUBGRAPH_ID}
     const subgraphIdMatch = baseEndpoint.match(/\/subgraphs\/id\/([^\/]+)/);
     const subgraphId = subgraphIdMatch ? subgraphIdMatch[1] : null;
-    
+
     let endpoint;
     if (apiKeyToUse && subgraphId) {
       // Build proper Gateway URL: https://gateway-arbitrum.network.thegraph.com/api/{KEY}/subgraphs/id/{ID}
@@ -54,14 +54,14 @@ export class UniswapGraphClient {
       endpoint = PUBLIC_ENDPOINTS[network as keyof typeof PUBLIC_ENDPOINTS] || PUBLIC_ENDPOINTS.mainnet;
       console.warn(`⚠️ No API key provided. Falling back to public The Graph endpoint for ${network}.`);
     }
-    
+
     this.client = new GraphQLClient(endpoint, {
       headers: {},
       timeout: 30000, // 30 seconds
     });
   }
 
-  // Получение информации о пуле по адресу
+  // Получение информации о пуле по адресу С РЕАЛЬНЫМИ 24H ДАННЫМИ
   async getPoolByAddress(poolAddress: string) {
     const query = gql`
       query GetPool($poolAddress: String!) {
@@ -95,7 +95,7 @@ export class UniswapGraphClient {
           observationIndex
           liquidityProviderCount
           poolDayData(
-            first: 2
+            first: 7
             orderBy: date
             orderDirection: desc
           ) {
@@ -106,9 +106,13 @@ export class UniswapGraphClient {
             volumeToken0
             volumeToken1
             txCount
+            open
+            high
+            low
+            close
           }
           poolHourData(
-            first: 26
+            first: 24
             orderBy: periodStartUnix
             orderDirection: desc
           ) {
@@ -125,28 +129,40 @@ export class UniswapGraphClient {
     `;
 
     try {
-      const variables = { 
-        poolAddress: poolAddress.toLowerCase() 
+      const variables = {
+        poolAddress: poolAddress.toLowerCase()
       };
       console.log(`🔍 GraphQL query for pool ${poolAddress} on ${this.network}`);
       const data = await this.client.request(query, variables);
-      
+
       if (data.pool) {
+        // ВАЖНО: Рассчитываем метрики за последние 24 часа из poolHourData
+        const last24Hours = data.pool.poolHourData || [];
+        const volume24h = last24Hours.reduce((sum: number, hour: any) =>
+          sum + parseFloat(hour.volumeUSD || '0'), 0
+        );
+        const fees24h = last24Hours.reduce((sum: number, hour: any) =>
+          sum + parseFloat(hour.feesUSD || '0'), 0
+        );
+
         console.log(`✅ Pool data received:`, {
           id: data.pool.id,
           pair: `${data.pool.token0.symbol}/${data.pool.token1.symbol}`,
-          totalValueLockedUSD: data.pool.totalValueLockedUSD,
-          volumeUSD: data.pool.volumeUSD,
-          poolDayDataCount: data.pool.poolDayData?.length || 0,
-          latestDayData: data.pool.poolDayData?.[0] ? {
-            date: new Date(data.pool.poolDayData[0].date * 1000).toISOString(),
-            volumeUSD: data.pool.poolDayData[0].volumeUSD,
-            feesUSD: data.pool.poolDayData[0].feesUSD,
-            tvlUSD: data.pool.poolDayData[0].tvlUSD
-          } : null
+          currentTVL: data.pool.totalValueLockedUSD,
+          volume24h: volume24h,
+          fees24h: fees24h,
+          hourDataPoints: last24Hours.length,
+          calculation: 'Using poolHourData for real 24h metrics'
         });
+
+        // Добавляем рассчитанные метрики в результат
+        data.pool.calculated24h = {
+          volumeUSD: volume24h,
+          feesUSD: fees24h,
+          tvlUSD: parseFloat(data.pool.totalValueLockedUSD || '0')
+        };
       }
-      
+
       return data.pool;
     } catch (error) {
       console.error('❌ Error fetching pool:', error);
@@ -191,6 +207,16 @@ export class UniswapGraphClient {
           txCount
           tick
           liquidityProviderCount
+          poolHourData(
+            first: 24
+            orderBy: periodStartUnix
+            orderDirection: desc
+          ) {
+            periodStartUnix
+            volumeUSD
+            feesUSD
+            tvlUSD
+          }
         }
       }
     `;
@@ -199,20 +225,40 @@ export class UniswapGraphClient {
       console.log(`🔍 Fetching top ${limit} pools from ${this.network}...`);
       const variables = { limit, orderBy };
       const data = await this.client.request(query, variables);
-      
+
       if (!data || !data.pools) {
         console.warn(`⚠️ No pools data returned from GraphQL query`);
         return [];
       }
-      
-      console.log(`✅ Successfully fetched ${data.pools.length} pools`);
-      return data.pools;
+
+      // Обогащаем каждый пул рассчитанными метриками за 24 часа
+      const enrichedPools = data.pools.map((pool: any) => {
+        const last24Hours = pool.poolHourData || [];
+        const volume24h = last24Hours.reduce((sum: number, hour: any) =>
+          sum + parseFloat(hour.volumeUSD || '0'), 0
+        );
+        const fees24h = last24Hours.reduce((sum: number, hour: any) =>
+          sum + parseFloat(hour.feesUSD || '0'), 0
+        );
+
+        return {
+          ...pool,
+          calculated24h: {
+            volumeUSD: volume24h,
+            feesUSD: fees24h,
+            tvlUSD: parseFloat(pool.totalValueLockedUSD || '0')
+          }
+        };
+      });
+
+      console.log(`✅ Successfully fetched ${enrichedPools.length} pools with real 24h metrics`);
+      return enrichedPools;
     } catch (error: any) {
       console.error(`❌ GraphQL error fetching top pools for ${this.network}:`, error);
       console.error(`   Error message:`, error?.message);
       console.error(`   Error response:`, error?.response);
       console.error(`   Error request:`, error?.request);
-      
+
       // Provide more detailed error message
       let errorMessage = 'Failed to fetch top pools';
       if (error?.response?.errors) {
@@ -220,7 +266,7 @@ export class UniswapGraphClient {
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       throw new Error(`${errorMessage} (network: ${this.network})`);
     }
   }
@@ -280,8 +326,8 @@ export class UniswapGraphClient {
     `;
 
     try {
-      const variables = { 
-        userAddress: userAddress.toLowerCase() 
+      const variables = {
+        userAddress: userAddress.toLowerCase()
       };
       const data = await this.client.request(query, variables);
       return data.positions;
@@ -295,14 +341,14 @@ export class UniswapGraphClient {
   async searchPoolsByTokens(token0?: string, token1?: string) {
     let whereClause = '';
     const conditions = [];
-    
+
     if (token0) {
       conditions.push(`token0: "${token0.toLowerCase()}"`);
     }
     if (token1) {
       conditions.push(`token1: "${token1.toLowerCase()}"`);
     }
-    
+
     if (conditions.length > 0) {
       whereClause = `where: { ${conditions.join(', ')} }`;
     }
@@ -383,9 +429,9 @@ export class UniswapGraphClient {
     `;
 
     try {
-      const variables = { 
+      const variables = {
         poolAddress: poolAddress.toLowerCase(),
-        days 
+        days
       };
       const data = await this.client.request(query, variables);
       return data.poolDayDatas;
@@ -421,8 +467,8 @@ export class UniswapGraphClient {
     `;
 
     try {
-      const variables = { 
-        poolAddress: poolAddress.toLowerCase() 
+      const variables = {
+        poolAddress: poolAddress.toLowerCase()
       };
       const data = await this.client.request(query, variables);
       return data.ticks;
