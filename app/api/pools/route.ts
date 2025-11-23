@@ -107,43 +107,39 @@ export async function GET(request: NextRequest) {
 
     const total = await prisma.pool.count({ where });
 
-    // Форматируем ответ с использованием poolDayData
+    // Форматируем ответ используя ТОЛЬКО данные из таблицы Pool
+    // Pool содержит ПРАВИЛЬНЫЕ данные из poolHourData (rolling 24h), а не календарные дни!
     const formattedPools = pools.map(pool => {
-      const latestFullDay = dayDataMap.get(pool.id);
-      
-      // ВАЖНО: Используем последний ПОЛНЫЙ день для volume и fees
-      // TVL используем из pool (текущее актуальное значение)
-      const volume24h = latestFullDay?.volumeUSD || 0;
-      const fees24h = latestFullDay?.feesUSD || 0; // fees24h ТОЛЬКО из poolDayData!
-      const tvl = pool.tvlUSD || 0; // Текущее значение из pool, не из dayData!
-      
-      // Рассчитываем APR из реальных 24h fees: (fees24h / tvl) * 365 * 100
-      // Затем вычитаем 1% для отображения пользователю (если APR >= 1%)
+      // ИСПРАВЛЕНО: Берем все данные из pool (таблица Pool), а НЕ из poolDayData!
+      // При импорте мы сохраняем в Pool.volumeUSD данные из poolHourData (последние 24 часа)
+      const volume24h = pool.volumeUSD || 0; // ✅ Из Pool (poolHourData - rolling 24h)
+      const tvl = pool.tvlUSD || 0;          // ✅ Из Pool (poolHourData - текущий)
+
+      // Рассчитываем fees24h из volume и fee tier
+      const feePct = (pool.fee || 0) / 1000000; // fee в basis points, делим на 1000000 чтобы получить decimal
+      const fees24h = volume24h * feePct;
+
+      // Рассчитываем APR: (fees24h / tvl) * 365 * 100
       let apr = tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0;
-      if (apr >= 1) {
-        apr = apr - 1; // Вычитаем 1% (наша комиссия)
-      }
+      // Не вычитаем 1% - это должно быть на фронтенде если нужно
+      // if (apr >= 1) {
+      //   apr = apr - 1;
+      // }
       
       // Логируем для первого пула (для отладки)
       if (pool.id === pools[0]?.id) {
         console.log(`📊 API /api/pools - Pool ${pool.address}:`, {
-          hasDayData: !!latestFullDay,
-          dayDataDate: latestFullDay ? new Date(latestFullDay.date).toISOString() : null,
-          fromPool: {
-            volumeUSD: pool.volumeUSD,
-            tvlUSD: pool.tvlUSD
+          pair: `${pool.token0Symbol}/${pool.token1Symbol}`,
+          network: pool.network,
+          dataSource: 'Pool table (from poolHourData - rolling 24h)',
+          metrics: {
+            volume24h: `$${volume24h.toLocaleString()}`,
+            tvl: `$${tvl.toLocaleString()}`,
+            feeTier: `${pool.fee} bps (${(pool.fee / 10000).toFixed(2)}%)`,
+            fees24h: `$${fees24h.toLocaleString()}`,
+            apr: `${apr.toFixed(2)}%`
           },
-          fromDayData: {
-            volumeUSD: latestFullDay?.volumeUSD,
-            feesUSD: latestFullDay?.feesUSD,
-            tvlUSD: latestFullDay?.tvlUSD
-          },
-          final: {
-            volume24h,
-            fees24h,
-            tvl,
-            apr
-          }
+          note: 'Using Pool table data (poolHourData), NOT poolDayData!'
         });
       }
       

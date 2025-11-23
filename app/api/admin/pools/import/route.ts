@@ -177,15 +177,18 @@ async function importSinglePool(
       tvl = calculated.tvlUSD;
     }
 
+    // Рассчитываем APR для логов
+    const apr = tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0;
+
     console.log(`📊 FINAL METRICS:`, {
-      volume24h,
-      fees24h,
-      tvl,
-      apr: tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0,
+      volume24h: `$${volume24h.toLocaleString()}`,
+      fees24h: `$${fees24h.toLocaleString()}`,
+      tvl: `$${tvl.toLocaleString()}`,
+      apr: `${apr.toFixed(2)}%`,
       dataSources: {
         volume: 'poolHourData (last 24 hours)',
         fees: 'poolHourData (last 24 hours)',
-        tvl: 'Blockchain RPC (REAL-TIME)'
+        tvl: 'Blockchain RPC (REAL-TIME) or poolHourData fallback'
       },
       note: 'EXACTLY like Uniswap UI!'
     });

@@ -17,13 +17,28 @@ const ERC20_ABI = [
   'function balanceOf(address account) external view returns (uint256)',
 ];
 
-// RPC URLs для разных сетей
-const RPC_URLS: Record<string, string> = {
-  mainnet: 'https://eth.llamarpc.com',
-  arbitrum: 'https://arb1.arbitrum.io/rpc',
-  polygon: 'https://polygon-rpc.com',
-  optimism: 'https://mainnet.optimism.io',
-  base: 'https://mainnet.base.org',
+// RPC URLs и chainIds для разных сетей
+const NETWORK_CONFIG: Record<string, { rpcUrl: string; chainId: number }> = {
+  mainnet: {
+    rpcUrl: 'https://eth.llamarpc.com',
+    chainId: 1
+  },
+  arbitrum: {
+    rpcUrl: 'https://arb1.arbitrum.io/rpc',
+    chainId: 42161
+  },
+  polygon: {
+    rpcUrl: 'https://polygon-rpc.com',
+    chainId: 137
+  },
+  optimism: {
+    rpcUrl: 'https://mainnet.optimism.io',
+    chainId: 10
+  },
+  base: {
+    rpcUrl: 'https://mainnet.base.org',
+    chainId: 8453
+  },
 };
 
 /**
@@ -43,12 +58,20 @@ export async function getRealPoolTVL(
   token1Price: number;
 }> {
   try {
-    const rpcUrl = RPC_URLS[network];
-    if (!rpcUrl) {
-      throw new Error(`No RPC URL for network: ${network}`);
+    const networkConfig = NETWORK_CONFIG[network];
+    if (!networkConfig) {
+      throw new Error(`No RPC config for network: ${network}`);
     }
 
-    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    // Создаем provider с явным указанием chainId для избежания "could not detect network"
+    const provider = new ethers.providers.JsonRpcProvider({
+      url: networkConfig.rpcUrl,
+      timeout: 30000,
+    }, {
+      name: network,
+      chainId: networkConfig.chainId,
+    });
+
     const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
 
     // Получаем адреса токенов
