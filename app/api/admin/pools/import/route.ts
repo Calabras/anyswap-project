@@ -324,8 +324,10 @@ async function importSinglePool(
         token0Symbol: poolData.token0.symbol,
         token1Symbol: poolData.token1.symbol,
         fee: poolData.feeTier,
-        tvlUSD: poolData.totalValueLockedUSD,
-        volumeUSD: lastDayVolumeUSD
+        tvlUSD: tvl,  // ИСПРАВЛЕНО: используем рассчитанный TVL
+        volumeUSD: volume24h,  // ИСПРАВЛЕНО: используем рассчитанный volume24h
+        fees24h: fees24h,
+        apr: tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0
       }
     });
 

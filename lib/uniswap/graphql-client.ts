@@ -145,21 +145,28 @@ export class UniswapGraphClient {
           sum + parseFloat(hour.feesUSD || '0'), 0
         );
 
+        // КРИТИЧЕСКИ ВАЖНО: Берем TVL из ПОСЛЕДНЕГО ЧАСА, а не из pool.totalValueLockedUSD
+        // Потому что pool.totalValueLockedUSD может быть устаревшим/кэшированным
+        const latestHourTVL = last24Hours.length > 0
+          ? parseFloat(last24Hours[0].tvlUSD || '0')
+          : parseFloat(data.pool.totalValueLockedUSD || '0');
+
         console.log(`✅ Pool data received:`, {
           id: data.pool.id,
           pair: `${data.pool.token0.symbol}/${data.pool.token1.symbol}`,
-          currentTVL: data.pool.totalValueLockedUSD,
+          poolTVL: data.pool.totalValueLockedUSD,
+          latestHourTVL: latestHourTVL,
           volume24h: volume24h,
           fees24h: fees24h,
           hourDataPoints: last24Hours.length,
-          calculation: 'Using poolHourData for real 24h metrics'
+          calculation: 'Using poolHourData for real 24h metrics AND fresh TVL'
         });
 
         // Добавляем рассчитанные метрики в результат
         data.pool.calculated24h = {
           volumeUSD: volume24h,
           feesUSD: fees24h,
-          tvlUSD: parseFloat(data.pool.totalValueLockedUSD || '0')
+          tvlUSD: latestHourTVL  // Используем TVL из последнего часа!
         };
       }
 
@@ -241,12 +248,17 @@ export class UniswapGraphClient {
           sum + parseFloat(hour.feesUSD || '0'), 0
         );
 
+        // КРИТИЧЕСКИ ВАЖНО: Берем TVL из ПОСЛЕДНЕГО ЧАСА
+        const latestHourTVL = last24Hours.length > 0
+          ? parseFloat(last24Hours[0].tvlUSD || '0')
+          : parseFloat(pool.totalValueLockedUSD || '0');
+
         return {
           ...pool,
           calculated24h: {
             volumeUSD: volume24h,
             feesUSD: fees24h,
-            tvlUSD: parseFloat(pool.totalValueLockedUSD || '0')
+            tvlUSD: latestHourTVL  // Используем TVL из последнего часа!
           }
         };
       });
