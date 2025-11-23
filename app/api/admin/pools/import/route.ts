@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import UniswapGraphClient from '@/lib/uniswap/graphql-client';
+import { getRealPoolTVL } from '@/lib/uniswap/pool-contract';
 import { ethers } from 'ethers';
 
 // Конфигурация сетей
@@ -161,15 +162,32 @@ async function importSinglePool(
 
     const volume24h = calculated.volumeUSD;
     const fees24h = calculated.feesUSD;
-    const tvl = calculated.tvlUSD;
 
-    console.log(`📊 REAL 24H METRICS (from poolHourData):`, {
+    // 🔥 КРИТИЧЕСКИ ВАЖНО: Получаем РЕАЛЬНЫЙ TVL напрямую из блокчейна
+    // The Graph может возвращать устаревшие/кэшированные данные
+    // Uniswap UI использует прямые RPC вызовы для TVL!
+    console.log(`🔗 Fetching REAL TVL from blockchain via RPC...`);
+    let tvl: number;
+    try {
+      const realTVL = await getRealPoolTVL(poolAddress, network);
+      tvl = realTVL.tvlUSD;
+      console.log(`✅ REAL TVL from blockchain: $${tvl.toLocaleString()} (${realTVL.token0Balance} ${realTVL.token0Symbol} + ${realTVL.token1Balance} ${realTVL.token1Symbol})`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to get real TVL from blockchain, using subgraph data:`, error);
+      tvl = calculated.tvlUSD;
+    }
+
+    console.log(`📊 FINAL METRICS:`, {
       volume24h,
       fees24h,
       tvl,
       apr: tvl > 0 ? (fees24h / tvl) * 365 * 100 : 0,
-      dataSource: 'poolHourData (last 24 hours)',
-      note: 'EXACTLY like Uniswap UI - uses hourly data!'
+      dataSources: {
+        volume: 'poolHourData (last 24 hours)',
+        fees: 'poolHourData (last 24 hours)',
+        tvl: 'Blockchain RPC (REAL-TIME)'
+      },
+      note: 'EXACTLY like Uniswap UI!'
     });
 
     // Сохраняем или обновляем пул в базе данных
